@@ -150,14 +150,14 @@ class Sequential():
         return self.args[items]
     
     
-    def parameters(self):
+    def with_parameters(self):
         '''Returns the objects that contain the weights and bias.'''
         return  self.args[0:-2:2]
     
     def zero_grad(self):
         '''Set the weights and bias of the model to zero.'''
 
-        for arg in self.parameters():
+        for arg in self.with_parameters():
             arg.weight_grad.zero_()
             arg.bias_grad.zero_()
         return 
@@ -206,7 +206,7 @@ for e in range(nb_epochs):
     model.backward()# backpropagation - gradients are calculated and stored based on the prediction and target set in model.loss().
                     # backpropagation - the calculated gradients are stored as attributes in the object. 
 
-    for p in model.parameters():
+    for p in model.with_parameters():
         p.weight = p.weight - eta * p.weight_grad
         p.bias = p.bias - eta * p.bias_grad
             
