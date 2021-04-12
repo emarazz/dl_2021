@@ -4,6 +4,9 @@ from torch import Tensor
 import dlc_practical_prologue as prologue
 from modules import *
 
+# Set autograd off
+torch.set_grad_enabled(False)
+
 train_input, train_target, test_input, test_target = prologue.load_data(one_hot_labels = True,
                                                                         normalize = True)
 nb_classes = train_target.size(1)

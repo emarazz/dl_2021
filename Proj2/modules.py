@@ -6,8 +6,8 @@ Deep Learning EE-559, Fall 2021.
 import torch
 from torch import Tensor
 
-import dlc_practical_prologue as prologue
-
+# Set autograd off
+torch.set_grad_enabled(False)
 
 class Tanh:
     """ Creates a module for the Tanh function and its respective derivative. """
