@@ -12,7 +12,7 @@ do to:
     - move the parameters in test_model in input (epochs, eta, ...) 
 """
 
-def test_model(model_name, optimizer):
+def test_model(model_name, optimizer, epochs, eta, n_runs):
     """
     model_name: name of the network - string {"BaseNet", ...}
     optimizer: type of the optimizer - string {"SGD", ...}
@@ -20,30 +20,44 @@ def test_model(model_name, optimizer):
     device = get_device()
     criterion = nn.CrossEntropyLoss()
     criterion = criterion.to(device)
-    epochs = 100
-    eta = 1e-2 # learning rate 
 
     acc_runs = []
     acc_train = []
-    n_runs = 3
+    acc_test = []
     for i in range(0, n_runs):
         print("Run {}".format(i))
+        # load data
         train_loader, test_loader = get_data(N = 1000, batch_size = 10 , shuffle = True )
         
+        # select the model
         if model_name == "BaseNet":
             model = BaseNet(nb_hidden = 32, dropout_prob = 0.5)
-        # add condition for the other models 
-
-        model = model.to(device)
-        if model_name == "BaseNet":
-            acc = train_BaseNet(model, train_loader ,criterion, eta, epochs, optimizer)
-            acc_tr = compute_acc_BaseNet(model, train_loader)
         # add condition for the other models
+        model = model.to(device)
+
+        # train & test
+        if model_name == "BaseNet":
+            # train the model
+            acc = train_BaseNet(model, train_loader ,criterion, eta, epochs, optimizer)
+            # compute train accuracy
+            acc_tr = compute_acc_BaseNet(model, train_loader)
+            # compute test accuracy
+            acc_ts = compute_acc_BaseNet(model, test_loader)
+        # add condition for the other models
+
         acc_runs.append(acc)
         acc_train.append(acc_tr)
+        acc_test.append(acc_ts)
         del model
 
-    return acc_runs, acc_train
+    return acc_runs, acc_train, acc_test
 
-acc_runs, acc_train = test_model("BaseNet","SGD")
-print(acc_runs, acc_train)
+
+# "main"
+
+epochs = 100
+eta = 1e-2 # learning rate 
+n_runs = 3
+
+acc_runs, acc_train, acc_test = test_model("BaseNet","SGD", epochs, eta, n_runs)
+print(acc_runs, acc_train, acc_test)

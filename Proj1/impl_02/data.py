@@ -18,10 +18,10 @@ class MNISTPairDataset(Dataset):
         return len(self.input_data)
     
     def __getitem__(self, i):
-        data = self.input_data[i, :, :, :]
+        input_data = self.input_data[i, :, :, :]
         target = self.target[i]
         classes = self.classes[i, :]
-        return data, target, classes
+        return input_data, target, classes
     
 def get_data(N, batch_size, shuffle):
     train_input, train_target, train_classes, test_input, test_target, test_classes = generate_pair_sets(N)

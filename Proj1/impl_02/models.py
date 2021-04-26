@@ -28,7 +28,4 @@ class BaseNet(nn.Module):
         x = self.fc2(x)
 
         return x
-train_loader, test_loader = get_data(N = 1000, batch_size = 10, shuffle = True)
-data = iter(train_loader)
-print("pasta {}".format(data))
-acc = compute_acc_BaseNet()
+
