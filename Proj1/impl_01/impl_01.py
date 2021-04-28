@@ -97,7 +97,11 @@ for k in range(10):
     model = Net()
     model.to(device)
     train_model(model, train_input, train_target, mini_batch_size, nb_epochs)
-    nb_test_errors = compute_nb_errors(model, train_input, train_target, train_target_ohl, mini_batch_size)
+    nb_test_errors = compute_nb_errors(model, test_input, test_target, test_target_ohl, mini_batch_size)
+    nb_train_errors = compute_nb_errors(model, train_input, train_target, train_target_ohl, mini_batch_size)
+
     print('test error Net {:0.2f}% {:d}/{:d}'.format((100 * nb_test_errors) / test_input.size(0),
                                                       nb_test_errors, test_input.size(0)))
+    print('train error Net {:0.2f}% {:d}/{:d}'.format((100 * nb_train_errors) / train_input.size(0),
+                                                      nb_train_errors, train_input.size(0)))    
     del model

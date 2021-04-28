@@ -16,7 +16,7 @@ class BaseNet(nn.Module):
 
         self.fc1 = nn.Linear(256, nb_hidden)
         self.fc2 = nn.Linear(nb_hidden, 2)
-
+    
         self.dropout = nn.Dropout(dropout_prob)
     
     def forward(self, x):
@@ -28,4 +28,3 @@ class BaseNet(nn.Module):
         x = self.fc2(x)
 
         return x
-
