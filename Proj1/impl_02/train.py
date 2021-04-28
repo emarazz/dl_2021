@@ -7,22 +7,22 @@ ToDo: in optim.SGD add momentum and nesterov options
 """
 def train_BaseNet(model, train_loader ,criterion, eta, epochs, optimizer):
     acc_loss = 0
-    loss = []
+    losses = []
     if optimizer == "SGD":    
         optimizer = torch.optim.SGD(model.parameters(), lr = eta) 
         
     for e in range(epochs):
         for input_data, target, _ in iter(train_loader):
             output = model(input_data)
-            temp = criterion(output, target)
-            loss.append(temp)
+            loss = criterion(output, target)
+            losses.append(temp)
             acc_loss = acc_loss + loss.item()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
     
-    return acc_loss, loss 
+    return acc_loss, losses 
 
 def compute_acc_BaseNet(model, data_loader):
     nb_errors = 0
