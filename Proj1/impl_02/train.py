@@ -15,13 +15,13 @@ def train_BaseNet(model, train_loader ,criterion, eta, epochs, optimizer):
         for input_data, target, _ in iter(train_loader):
             output = model(input_data)
             loss = criterion(output, target)
-            losses.append(temp)
+            losses.append(loss)
             acc_loss = acc_loss + loss.item()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-    
+
     return acc_loss, losses 
 
 def compute_acc_BaseNet(model, data_loader):

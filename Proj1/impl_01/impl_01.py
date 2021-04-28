@@ -3,6 +3,7 @@ from torch import nn
 from torch.nn import functional as F
 import dlc_practical_prologue as prologue
 
+
 # load data
 N = 1000
 train_input, train_target, train_classes, test_input, test_target, test_classes = prologue.generate_pair_sets(N)
@@ -11,22 +12,23 @@ train_input, train_target, train_classes, test_input, test_target, test_classes 
 # b = 20
 # data = train_input.narrow(0,0,b).view(b,392,-1)
 
+# TODo:
+# use the sequential
+
 class Net(nn.Module):
     def __init__(self):
         super().__init__()
         self.fc1 = nn.Linear(392, 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 2)
-        self.drop = nn.Dropout(0.5)
+        self.drop = nn.Dropout(0.5) 
 
 
     def forward(self, x):
         x = F.relu(self.drop(self.fc1(x)))
         x = F.relu(self.drop(self.fc2(x)))
         x = torch.sigmoid(self.drop(self.fc3(x)))
-
         return x
-
 
 def train_model(model, train_input, train_target, mini_batch_size, nb_epochs):
     eta = 1e-3
@@ -36,8 +38,6 @@ def train_model(model, train_input, train_target, mini_batch_size, nb_epochs):
 
         for b in range(0, train_input.size(0), mini_batch_size):
             output = model(train_input.narrow(0, b, mini_batch_size).view(mini_batch_size, -1))
-            # output = model(train_input.narrow(0,b,mini_batch_size).view(mini_batch_size,2,196,-1).view(mini_batch_size,392,-1).view(mini_batch_size,-1))
-            #output = model(train_input.narrow(0, b, mini_batch_size).view(mini_batch_size,392,-1))
             loss = criterion(output, train_target.narrow(0, b, mini_batch_size))
             acc_loss = acc_loss + loss.item()
 
@@ -52,7 +52,6 @@ def compute_nb_errors(model, input, target, target_ohl, mini_batch_size):
 
     for b in range(0, input.size(0), mini_batch_size):
         output = model(input.narrow(0, b, mini_batch_size).view(mini_batch_size,-1))
-        #output = model(input.narrow(0,b,mini_batch_size).view(mini_batch_size,2,196,-1).view(mini_batch_size,392,-1).view(mini_batch_size,-1))
         _, predicted_lower = output.max(1)
         for k in range(mini_batch_size):
             if target_ohl[b + k, predicted_lower[k]] <= 0:
@@ -104,4 +103,5 @@ for k in range(10):
                                                       nb_test_errors, test_input.size(0)))
     print('train error Net {:0.2f}% {:d}/{:d}'.format((100 * nb_train_errors) / train_input.size(0),
                                                       nb_train_errors, train_input.size(0)))    
+                                            
     del model
