@@ -17,7 +17,7 @@ class Net(nn.Module):
         self.fc1 = nn.Linear(392, 256)
         self.fc2 = nn.Linear(256, 256)
         self.fc3 = nn.Linear(256, 2)
-        self.drop = nn.Dropout(0.2)
+        self.drop = nn.Dropout(0.5)
 
 
     def forward(self, x):
@@ -29,7 +29,7 @@ class Net(nn.Module):
 
 
 def train_model(model, train_input, train_target, mini_batch_size, nb_epochs):
-    eta = 1.2e-1
+    eta = 1e-3
     optimizer = torch.optim.SGD(model.parameters(), lr = eta)
     for e in range(nb_epochs):
         acc_loss = 0
