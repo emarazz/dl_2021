@@ -24,7 +24,8 @@ def test_model(model_name, optimizer, n_runs,
     best_param = grid_search_BaseNet(eta_vals = eta_vals, batch_size_vals = batch_size_vals, epochs_vals = epochs_vals, drop_prob_vals =  drop_prob_vals,
                                         optimizer = optimizer, n_runs = n_runs)
     eta = best_param['eta']
-    nb_hidden = best_param['nb_hidden']
+    batch_size = best_param['batch_size']
+    epochs = best_param['epochs']
     dropout_prob = best_param['dropout_prob']  
 
     device = get_device()
@@ -38,17 +39,18 @@ def test_model(model_name, optimizer, n_runs,
     for i in range(0, n_runs):
         print("Run {}".format(i))
         # load data
-        train_loader, test_loader = get_data(N = 1000, batch_size = 10 , shuffle = True )
+        train_loader, test_loader = get_data(N = 1000, batch_size = batch_size, shuffle = True )
         
         # select the model
         if model_name == "BaseNet":
-            model = BaseNet(nb_hidden = nb_hidden, dropout_prob = dropout_prob)
+            model = BaseNet(nb_hidden = 256, dropout_prob = dropout_prob)
         # add condition for the other models
         model = model.to(device)
 
         # train & test
         if model_name == "BaseNet":
             # train the model
+            losses = []
             _, losses = train_BaseNet(model, train_loader ,criterion, eta, epochs, optimizer)
             # compute train accuracy
             acc_tr = compute_acc_BaseNet(model, train_loader)
@@ -74,7 +76,7 @@ batch_size_vals = [20, 50, 100]
 epochs_vals = [10, 30, 50]
 acc_train, acc_test, losses = test_model("BaseNet","SGD", n_runs,
                                     eta_vals, batch_size_vals, epochs_vals, drop_prob_vals)
-for i in range(0, losses.size(0)):
+for i in range(0, len(losses)):
     with open("losses.txt", "a") as file:
-        text = '{}'.format(losses[i]) 
+        text = '{:.4f}\n'.format(losses[i]) 
         file.write(text)
