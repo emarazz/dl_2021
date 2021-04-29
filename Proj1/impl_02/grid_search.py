@@ -17,7 +17,7 @@ def grid_search_BaseNet(eta_vals, batch_size_vals, epochs_vals, drop_prob_vals,
     """
     # initialize the file
     with open("grid_search.txt", "a") as file:
-        text = '  n  |  eta  |  batch size  |  nb epochs  |  dropout  \n' 
+        text = '  n  |  eta  |  batch size  |  nb epochs  |  dropout  || accuracy\n' 
         file.write(text)
     count = 0
     best_acc = 0 
@@ -53,7 +53,7 @@ def grid_search_BaseNet(eta_vals, batch_size_vals, epochs_vals, drop_prob_vals,
                         best_param['dropout_prob'] = dropout_prob
                     count += 1
                     with open("grid_search.txt", "a") as file:
-                        text = ' {} | {} | {} | {} | {} \n'.format(count, best_param['eta'], best_param['batch_size'], best_param['epochs'], best_param['dropout_prob']) 
+                        text = ' {} | {} | {} | {} | {} || {:.3f} \n'.format(count, best_param['eta'], best_param['batch_size'], best_param['epochs'], best_param['dropout_prob'], acc) 
                         file.write(text)
     return best_param 
 
