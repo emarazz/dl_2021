@@ -7,6 +7,7 @@ from helpers import *
 
 BINARY_SEARCH_ITERATIONS = 3
 NUMBER_OF_ROUNDS = 3
+NUMBER_OF_EVALUATION_RUNS = 15
 
 class BaseNet(nn.Module):
     def __init__(self, nb_hidden, max_pool=False, dropout_prob=0):
@@ -155,6 +156,15 @@ def eval_BaseNet(max_pooling=False):
 
     hl, bs, e, eta, do = binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_probabilities)
 
+    filename = "BaseNet"
+    if max_pooling:
+        filename += "_max_pooling"
+    filename += "_parameters.txt"
+
+    f = open(filename, "r")
+    f.write("hl: {}, bs: 2**{}, e: {}, eta: {}, do: {}, mp: {}\n".format(hl, bs, e, eta, do, max_pooling))
+    f.close()
+
     averaged_losses = 0
     averaged_train_error_rate = 0
     averaged_test_error_rate = 0
@@ -172,6 +182,10 @@ def eval_BaseNet(max_pooling=False):
         train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
         losses, train_error_rates, test_error_rates = train_BaseNet(model, e, eta, train_loader, test_loader)
 
+        f.write(" ".join([str(l) for l in losses])+"\n")
+        f.write(" ".join([str(er) for er in train_error_rates])+"\n")
+        f.write(" ".join([str(er) for er in test_error_rates])+"\n")
+
         averaged_losses += losses[-1]
         averaged_train_error_rate += train_error_rates[-1]
         averaged_test_error_rate += test_error_rates[-1]
@@ -182,6 +196,5 @@ def eval_BaseNet(max_pooling=False):
     averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
     averaged_error_rate /= NUMBER_OF_EVALUATION_RUNS
 
-    f.write("hl: {}, bs: 2**{}, e: {}, eta: {}, do: {}, mp: {}\n".format(hl, bs, e, eta, do, max_pooling))
     f.write("loss: {}, train error rate: {}, test error rate: {}".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
     f.close()
