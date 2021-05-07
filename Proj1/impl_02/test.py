@@ -7,76 +7,49 @@ from models import *
 from train import *
 from grid_search import *
 
-"""
-do to: 
-    - try model without dropout and maxpool
-    - plot losses
-"""
+NUMBER_OF_EVALUATION_RUNS = 15
 
-def test_model(model_name, optimizer, n_runs,
-                    eta_vals, batch_size_vals, epochs_vals, drop_prob_vals):
-    """
-    model_name: name of the network - string {"BaseNet", ...}
-    optimizer: type of the optimizer - string {"SGD", ...}
-    """
-    # do grid search to get the "optimal" values
+def eval_BaseNet(max_pooling=False):
+    hidden_layers = [10, 2000]
+    batch_sizes = [3, 7]
+    epochs = [10, 50]
+    etas = [1e-4, 1e-1]
+    dropout_probabilities = [0, 0.9]
 
-    best_param = grid_search_BaseNet(eta_vals = eta_vals, batch_size_vals = batch_size_vals, epochs_vals = epochs_vals, drop_prob_vals =  drop_prob_vals,
-                                        optimizer = optimizer, n_runs = n_runs)
-    eta = best_param['eta']
-    batch_size = best_param['batch_size']
-    epochs = best_param['epochs']
-    dropout_prob = best_param['dropout_prob']  
+    hl, bs, e, eta, do = binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_probabilities)
 
     device = get_device()
-    criterion = nn.CrossEntropyLoss()
-    criterion = criterion.to(device)
 
-    acc_train = [] # train accuracy
-    acc_test = [] # test accuracy
+    averaged_losses = 0
+    averaged_train_error_rate = 0
+    averaged_test_error_rate = 0
 
+    filename = "BaseNet"
+    if max_pooling:
+        filename += "_max_pooling"
+    filename += ".txt"
 
-    for i in range(0, n_runs):
-        print("Run {}".format(i))
-        # load data
-        train_loader, test_loader = get_data(N = 1000, batch_size = batch_size, shuffle = True )
-        
-        # select the model
-        if model_name == "BaseNet":
-            model = BaseNet(nb_hidden = 256, dropout_prob = dropout_prob)
-        # add condition for the other models
-        model = model.to(device)
+    f = open(filename, "r")
+    f.write("{} {}\n".format(e, NUMBER_OF_EVALUATION_RUNS))
 
-        # train & test
-        if model_name == "BaseNet":
-            # train the model
-            losses = []
-            _, losses = train_BaseNet(model, train_loader ,criterion, eta, epochs, optimizer)
-            # compute train accuracy
-            acc_tr = compute_acc_BaseNet(model, train_loader)
-            # compute test accuracy
-            acc_ts = compute_acc_BaseNet(model, test_loader)
-        # add condition for the other models
+    for i in range(NUMBER_OF_EVALUATION_RUNS):
+        model = BaseNet(hl, max_pooling, do)
+        train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
+        losses, train_error_rates, test_error_rates = train_BaseNet(model, e, eta, train_loader, test_loader)
 
-        acc_train.append(acc_tr)
-        acc_test.append(acc_ts)
-        print('run n{} -> train accuracy: {:.2f} test accuracy: {:.2f}'.format(n_runs, acc_tr, acc_ts))
+        averaged_losses += losses[-1]
+        averaged_train_error_rate += train_error_rates[-1]
+        averaged_test_error_rate += test_error_rates[-1]
 
         del model
-    return acc_train, acc_test, losses 
 
+    averaged_losses /= NUMBER_OF_EVALUATION_RUNS
+    averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
+    averaged_error_rate /= NUMBER_OF_EVALUATION_RUNS
 
-# "main"
+    f.write("hl: {}, bs: 2**{}, e: {}, eta: {}, do: {}, mp: {}\n".format(hl, bs, e, eta, do, max_pooling))
+    f.write("loss: {}, train error rate: {}, test error rate: {}".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
+    f.close()
 
- 
-n_runs = 3
-eta_vals = [1e-3, 1e-2, 1e-1]
-drop_prob_vals = [0.2, 0.5, 0.7]
-batch_size_vals = [20, 50, 100]
-epochs_vals = [10, 30, 50]
-acc_train, acc_test, losses = test_model("BaseNet","SGD", n_runs,
-                                    eta_vals, batch_size_vals, epochs_vals, drop_prob_vals)
-for i in range(0, len(losses)):
-    with open("losses.txt", "a") as file:
-        text = '{:.4f}\n'.format(losses[i]) 
-        file.write(text)
+eval_BaseNet(False)
+eval_BaseNet(True)

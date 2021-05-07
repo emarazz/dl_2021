@@ -1,30 +1,31 @@
 import torch
 import torch.utils.data
 
-"""
-ToDo: in optim.SGD add momentum and nesterov options 
-
-"""
-def train_BaseNet(model, train_loader ,criterion, eta, epochs, optimizer):
-    acc_loss = 0
+def train_BaseNet(model, epochs, eta, train_loader, test_loader, eval_mode=False):
     losses = []
-    if optimizer == "SGD":    
-        optimizer = torch.optim.SGD(model.parameters(), lr = eta) 
+    train_error_rates = []
+    test_error_rates = []
+
+    criterion = nn.CrossEntropyLoss()
+    criterion = criterion.to(device)
+    optimizer = torch.optim.SGD(model.parameters(), lr=eta)
         
-    for e in range(epochs):
+    for _ in range(epochs):
         for input_data, target, _ in iter(train_loader):
             output = model(input_data)
             loss = criterion(output, target)
-            losses.append(loss)
-            acc_loss = acc_loss + loss.item()
 
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-    return acc_loss, losses 
+        losses.append(loss)
+        train_error_rates.append(compute_error_rate(model, train_loader))
+        test_error_rates.append(compute_error_rate(model, test_loader))
 
-def compute_acc_BaseNet(model, data_loader):
+    return losses, train_error_rates, test_error_rates
+
+def compute_error_rate(model, data_loader):
     nb_errors = 0
 
     for input_data, target, _ in iter(data_loader):
@@ -34,4 +35,6 @@ def compute_acc_BaseNet(model, data_loader):
             if (target[i]) != pred_target:
                 nb_errors += 1
 
-    return 1 - nb_errors / len(data_loader.dataset)
+    error_rate = nb_errors/len(data_loader.dataset)
+
+    return error_rate
