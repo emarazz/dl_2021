@@ -6,7 +6,7 @@ from data import *
 from helpers import *
 
 BINARY_SEARCH_ITERATIONS = 3
-NUMBER_OF_ROUNDS = 5
+NUMBER_OF_ROUNDS = 3
 
 class BaseNet(nn.Module):
     def __init__(self, nb_hidden, max_pool=False, dropout_prob=0):
@@ -92,7 +92,7 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
                         for r in range(NUMBER_OF_ROUNDS):
                             model = BaseNet(hl, max_pooling)
                             train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
-                            _, er, _ = train_BaseNet(model, e, eta, train_loader, test_loader)
+                            _, _, er = train_BaseNet(model, e, eta, train_loader, test_loader)
                             error_rate += er[-1]
                             del model
                         averaged_error_rate = error_rate/NUMBER_OF_ROUNDS
@@ -185,6 +185,3 @@ def eval_BaseNet(max_pooling=False):
     f.write("hl: {}, bs: 2**{}, e: {}, eta: {}, do: {}, mp: {}\n".format(hl, bs, e, eta, do, max_pooling))
     f.write("loss: {}, train error rate: {}, test error rate: {}".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
     f.close()
-
-eval_BaseNet(False)
-eval_BaseNet(True)
