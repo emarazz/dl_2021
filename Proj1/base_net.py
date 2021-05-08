@@ -120,7 +120,7 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
                                 used_eta = eta
                                 used_do = do
 
-                            print("bsi 1: {:1.0f}, hl: {:4.0f}, bs: 2**{1.0f}, e: {2.0f}, eta: {:.5f}, do: {:.5f}, mp: {} -> er: {:.5f} in about {:.5f}sec\n".format(bsi, hl, bs, e, eta, do, max_pooling, averaged_error_rate, time()-last_time))
+                            print("bsi 1: {:1.0f}, hl: {:4.0f}, bs: 2**{:1.0f}, e: {:2.0f}, eta: {:.5f}, do: {:.5f}, mp: {} -> er: {:.3f} in about {:.2f}sec\n".format(bsi, hl, bs, e, eta, do, max_pooling, averaged_error_rate, time()-last_time))
 
         if used_hl == hidden_layers[0]:
             hidden_layers = binary_step(hidden_layers, True)
