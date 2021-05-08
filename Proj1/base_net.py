@@ -4,8 +4,9 @@ from torch.nn import functional as F
 
 from data import *
 from helpers import *
+from time import time
 
-BINARY_SEARCH_ITERATIONS = 3
+BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_ROUNDS = 3
 NUMBER_OF_EVALUATION_RUNS = 15
 
@@ -16,9 +17,12 @@ class BaseNet(nn.Module):
         self.max_pool = max_pool
 
         self.conv1 = nn.Conv2d( 2, 32, kernel_size=5)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=5)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=2)
 
-        self.fc1 = nn.Linear(64*6*6, nb_hidden)
+        if max_pool:
+            self.fc1 = nn.Linear(64, nb_hidden)
+        else:
+            self.fc1 = nn.Linear(64*9*9, nb_hidden)
         self.fc2 = nn.Linear(nb_hidden, 2)
     
         self.dropout = nn.Dropout(dropout_prob)
@@ -32,7 +36,10 @@ class BaseNet(nn.Module):
         if self.max_pool:
             x = F.max_pool2d(x, kernel_size=2, stride=2)
         x = F.relu(x)
-        x = F.relu(self.fc1(x.view(-1, 64*6*6)))
+        if self.max_pool:
+            x = F.relu(self.fc1(x.view(-1, 64)))
+        else:
+            x = F.relu(self.fc1(x.view(-1, 64*9*9)))
         x = self.dropout(x)
         x = self.fc2(x)
 
@@ -72,7 +79,13 @@ def binary_step(two_elements_list, left):
         return [compute_center(two_elements_list), two_elements_list[1]]
 
 def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_probabilities, max_pooling=False):
-    lowest_error_rate = 0
+    lowest_error_rate = float('inf')
+
+    used_hl = -1
+    used_bs = -1
+    used_e = -1
+    used_eta = -1
+    used_do = -1
 
     for bsi in range(BINARY_SEARCH_ITERATIONS):
         assert(len(hidden_layers) == 2)
@@ -89,6 +102,7 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
             for bs in batch_sizes:
                 for e in epochs:
                     for eta in etas:
+                        last_time = time()
                         error_rate = 0
                         for r in range(NUMBER_OF_ROUNDS):
                             model = BaseNet(hl, max_pooling)
@@ -98,12 +112,13 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
                             del model
                         averaged_error_rate = error_rate/NUMBER_OF_ROUNDS
                         if averaged_error_rate < lowest_error_rate:
+                            lowest_error_rate = averaged_error_rate
                             used_hl = hl
                             used_bs = bs
                             used_e = e
                             used_eta = eta
 
-                        print("bsi: {}, hl: {}, bs: 2**{}, e: {}, eta: {}, mp: {} -> er: {}\n".format(bsi, hl, bs, e, eta, max_pooling, averaged_error_rate))
+                        print("bsi 1: {}, hl: {}, bs: 2**{}, e: {}, eta: {:.5f}, mp: {} -> er: {:.5f} in about {:.5f}sec\n".format(bsi, hl, bs, e, eta, max_pooling, averaged_error_rate, time()-last_time))
 
         if used_hl == hidden_layers[0]:
             hidden_layers = binary_step(hidden_layers, True)
@@ -127,6 +142,7 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
 
     for bsi in range(BINARY_SEARCH_ITERATIONS):
         for do in dropout_probabilities:
+            last_time = time()
             error_rate = 0
             for r in range(NUMBER_OF_ROUNDS):
                 model = BaseNet(used_hl, max_pooling, do)
@@ -136,9 +152,10 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
                 del model
             averaged_error_rate = error_rate/NUMBER_OF_ROUNDS
             if averaged_error_rate < lowest_error_rate:
+                lowest_error_rate = averaged_error_rate
                 used_do = do
 
-            print("bsi: {}, hl: {}, bs: 2**{}, e: {}, eta: {}, do: {}, mp: {} -> er: {}\n".format(bsi, used_hl, used_bs, used_e, used_eta, do, max_pooling, averaged_error_rate))
+            print("bsi 2: {}, hl: {}, bs: 2**{}, e: {}, eta: {:.5f}, do: {:.5f}, mp: {} -> er: {:.5f} in about {:.5f}sec\n".format(bsi, used_hl, used_bs, used_e, used_eta, do, max_pooling, averaged_error_rate, time() - last_time))
 
         if used_do == dropout_probabilities[0]:
             dropout_probabilities = binary_step(dropout_probabilities, True)
@@ -154,35 +171,35 @@ def eval_BaseNet(max_pooling=False):
     etas = [1e-3, 1e-1]
     dropout_probabilities = [0, 0.9]
 
-    hl, bs, e, eta, do = binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_probabilities)
+    hl, bs, e, eta, do = binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_probabilities, max_pooling)
 
     filename = "BaseNet"
     if max_pooling:
         filename += "_max_pooling"
     filename += "_parameters.txt"
 
-    f = open(filename, "r")
+    f = open(filename, "w")
     f.write("hl: {}, bs: 2**{}, e: {}, eta: {}, do: {}, mp: {}\n".format(hl, bs, e, eta, do, max_pooling))
     f.close()
-
-    averaged_losses = 0
-    averaged_train_error_rate = 0
-    averaged_test_error_rate = 0
 
     filename = "BaseNet"
     if max_pooling:
         filename += "_max_pooling"
-    filename += ".txt"
+    filename += "_scores.txt"
 
-    f = open(filename, "r")
+    f = open(filename, "w")
     f.write("{} {}\n".format(e, NUMBER_OF_EVALUATION_RUNS))
+
+    averaged_losses = 0
+    averaged_train_error_rate = 0
+    averaged_test_error_rate = 0
 
     for i in range(NUMBER_OF_EVALUATION_RUNS):
         model = BaseNet(hl, max_pooling, do)
         train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
         losses, train_error_rates, test_error_rates = train_BaseNet(model, e, eta, train_loader, test_loader)
 
-        f.write(" ".join([str(l) for l in losses])+"\n")
+        f.write(" ".join([str(l.item()) for l in losses])+"\n")
         f.write(" ".join([str(er) for er in train_error_rates])+"\n")
         f.write(" ".join([str(er) for er in test_error_rates])+"\n")
 
@@ -194,7 +211,9 @@ def eval_BaseNet(max_pooling=False):
 
     averaged_losses /= NUMBER_OF_EVALUATION_RUNS
     averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
-    averaged_error_rate /= NUMBER_OF_EVALUATION_RUNS
+    averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
 
-    f.write("loss: {}, train error rate: {}, test error rate: {}".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
+    print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
+
+    f.write("loss: {}, train error rate: {}, test error rate: {}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
     f.close()
