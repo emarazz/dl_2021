@@ -6,8 +6,8 @@ from data import *
 from helpers import *
 from time import time
 
-BINARY_SEARCH_ITERATIONS = 4
-NUMBER_OF_ROUNDS = 3
+BINARY_SEARCH_ITERATIONS = 3
+NUMBER_OF_SEARCH_RUNS = 1
 NUMBER_OF_EVALUATION_RUNS = 15
 
 class BaseNet(nn.Module):
@@ -104,13 +104,13 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
                     for eta in etas:
                         last_time = time()
                         error_rate = 0
-                        for r in range(NUMBER_OF_ROUNDS):
+                        for r in range(NUMBER_OF_SEARCH_RUNS):
                             model = BaseNet(hl, max_pooling)
                             train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
                             _, _, er = train_BaseNet(model, e, eta, train_loader, test_loader)
                             error_rate += er[-1]
                             del model
-                        averaged_error_rate = error_rate/NUMBER_OF_ROUNDS
+                        averaged_error_rate = error_rate/NUMBER_OF_SEARCH_RUNS
                         if averaged_error_rate < lowest_error_rate:
                             lowest_error_rate = averaged_error_rate
                             used_hl = hl
@@ -144,13 +144,13 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
         for do in dropout_probabilities:
             last_time = time()
             error_rate = 0
-            for r in range(NUMBER_OF_ROUNDS):
+            for r in range(NUMBER_OF_SEARCH_RUNS):
                 model = BaseNet(used_hl, max_pooling, do)
                 train_loader, test_loader = get_data(N=1000, batch_size=2**used_bs, shuffle=True)
                 _, _, er = train_BaseNet(model, used_e, used_eta, train_loader, test_loader)
                 error_rate += er
                 del model
-            averaged_error_rate = error_rate/NUMBER_OF_ROUNDS
+            averaged_error_rate = error_rate/NUMBER_OF_SEARCH_RUNS
             if averaged_error_rate < lowest_error_rate:
                 lowest_error_rate = averaged_error_rate
                 used_do = do
@@ -165,9 +165,9 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
     return used_hl, used_bs, used_e, used_eta, used_do 
 
 def eval_BaseNet(max_pooling=False):
-    hidden_layers = [10, 2000]
+    hidden_layers = [10, 1000]
     batch_sizes = [3, 7]
-    epochs = [10, 40]
+    epochs = [10, 30]
     etas = [1e-3, 1e-1]
     dropout_probabilities = [0, 0.9]
 
