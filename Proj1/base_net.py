@@ -6,7 +6,7 @@ from data import *
 from helpers import *
 from time import time
 
-BINARY_SEARCH_ITERATIONS = 3
+BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
 NUMBER_OF_EVALUATION_RUNS = 15
 
@@ -102,23 +102,25 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
             for bs in batch_sizes:
                 for e in epochs:
                     for eta in etas:
-                        last_time = time()
-                        error_rate = 0
-                        for r in range(NUMBER_OF_SEARCH_RUNS):
-                            model = BaseNet(hl, max_pooling)
-                            train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
-                            _, _, er = train_BaseNet(model, e, eta, train_loader, test_loader)
-                            error_rate += er[-1]
-                            del model
-                        averaged_error_rate = error_rate/NUMBER_OF_SEARCH_RUNS
-                        if averaged_error_rate < lowest_error_rate:
-                            lowest_error_rate = averaged_error_rate
-                            used_hl = hl
-                            used_bs = bs
-                            used_e = e
-                            used_eta = eta
+                        for do in dropout_probabilities:
+                            last_time = time()
+                            error_rate = 0
+                            for r in range(NUMBER_OF_SEARCH_RUNS):
+                                model = BaseNet(hl, max_pooling, do)
+                                train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
+                                _, _, er = train_BaseNet(model, e, eta, train_loader, test_loader)
+                                error_rate += er[-1]
+                                del model
+                            averaged_error_rate = error_rate/NUMBER_OF_SEARCH_RUNS
+                            if averaged_error_rate < lowest_error_rate:
+                                lowest_error_rate = averaged_error_rate
+                                used_hl = hl
+                                used_bs = bs
+                                used_e = e
+                                used_eta = eta
+                                used_do = do
 
-                        print("bsi 1: {}, hl: {}, bs: 2**{}, e: {}, eta: {:.5f}, mp: {} -> er: {:.5f} in about {:.5f}sec\n".format(bsi, hl, bs, e, eta, max_pooling, averaged_error_rate, time()-last_time))
+                            print("bsi 1: {:1.0f}, hl: {:4.0f}, bs: 2**{1.0f}, e: {2.0f}, eta: {:.5f}, do: {:.5f}, mp: {} -> er: {:.5f} in about {:.5f}sec\n".format(bsi, hl, bs, e, eta, do, max_pooling, averaged_error_rate, time()-last_time))
 
         if used_hl == hidden_layers[0]:
             hidden_layers = binary_step(hidden_layers, True)
@@ -139,23 +141,6 @@ def binary_search_BaseNet(hidden_layers, batch_sizes, epochs, etas, dropout_prob
             etas = binary_step(etas, True)
         else:
             etas = binary_step(etas, False)
-
-    for bsi in range(BINARY_SEARCH_ITERATIONS):
-        for do in dropout_probabilities:
-            last_time = time()
-            error_rate = 0
-            for r in range(NUMBER_OF_SEARCH_RUNS):
-                model = BaseNet(used_hl, max_pooling, do)
-                train_loader, test_loader = get_data(N=1000, batch_size=2**used_bs, shuffle=True)
-                _, _, er = train_BaseNet(model, used_e, used_eta, train_loader, test_loader)
-                error_rate += er
-                del model
-            averaged_error_rate = error_rate/NUMBER_OF_SEARCH_RUNS
-            if averaged_error_rate < lowest_error_rate:
-                lowest_error_rate = averaged_error_rate
-                used_do = do
-
-            print("bsi 2: {}, hl: {}, bs: 2**{}, e: {}, eta: {:.5f}, do: {:.5f}, mp: {} -> er: {:.5f} in about {:.5f}sec\n".format(bsi, used_hl, used_bs, used_e, used_eta, do, max_pooling, averaged_error_rate, time() - last_time))
 
         if used_do == dropout_probabilities[0]:
             dropout_probabilities = binary_step(dropout_probabilities, True)
