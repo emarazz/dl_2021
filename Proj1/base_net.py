@@ -9,7 +9,11 @@ from time import time
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
 NUMBER_OF_EVALUATION_RUNS = 15
-
+"""
+ToDo: 
+    - try Adam instead of SGD
+    - increase batch_size
+"""
 class BaseNet(nn.Module):
     def __init__(self, nb_hidden, max_pool=False, dropout_prob=0):
         super().__init__()
@@ -49,9 +53,13 @@ def train_BaseNet(model, epochs, eta, train_loader, test_loader, eval_mode=False
     losses = []
     train_error_rates = []
     test_error_rates = []
-
+    
+    # [G_130521] move model to device
+    device = get_device() 
+    model  = model.to(device)
     criterion = nn.CrossEntropyLoss()
-    criterion = criterion.to(get_device())
+    criterion = criterion.to(device)
+    
     optimizer = torch.optim.SGD(model.parameters(), lr=eta)
         
     for _ in range(epochs):
