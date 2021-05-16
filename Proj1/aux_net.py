@@ -196,7 +196,7 @@ def binary_search_AuxNet(hidden_layers1, hidden_layers2, hidden_layers3, batch_s
                                     used_eta = eta
                                     used_do = do
 
-                                f.write("bsi: {:1.0f}, hl: {:4.0f}, h2: {:4.0f}, h3: {:4.0f}, bs: 2**{:1.0f}, eta: {:.5f}, do: {:.5f} -> er: {:.3f} in about {:.2f}sec".format(bsi, hl, h2, h3, bs, eta, do, averaged_error_rate, time()-last_time))
+                                f.write("bsi: {:1.0f}, hl: {:4.0f}, h2: {:4.0f}, h3: {:4.0f}, bs: 2**{:1.0f}, eta: {:.5f}, do: {:.5f} -> er: {:.3f} in about {:.2f}sec\n".format(bsi, hl, h2, h3, bs, eta, do, averaged_error_rate, time()-last_time))
 
         if used_hl == hidden_layers1[0]:
             hidden_layers1 = binary_step(hidden_layers1, True)
