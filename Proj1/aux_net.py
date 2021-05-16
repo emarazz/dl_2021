@@ -23,6 +23,8 @@ ToDo:
     - if accuracy is low try to remove max pooling
     - increase batch_size
     - consider increasing the depth and make the learning rate vary 
+    - can be simplified with groups?
+    - print computational time
 """
 class AuxNet(nn.Module):
     def __init__(self, nb_hidden1, nb_hidden2, nb_hidden3, dropout_prob=0):
@@ -155,7 +157,8 @@ def binary_search_AuxNet(hidden_layers1, hidden_layers2, hidden_layers3, batch_s
     used_bs = -1
     used_eta = -1
     used_do = -1
-
+    filename = "AuxNet_binarysearch.txt"
+    f = open(filename, "w")
     for bsi in range(BINARY_SEARCH_ITERATIONS):
         assert(len(hidden_layers1) == 2)
         assert(len(hidden_layers2) == 2)
@@ -193,7 +196,7 @@ def binary_search_AuxNet(hidden_layers1, hidden_layers2, hidden_layers3, batch_s
                                     used_eta = eta
                                     used_do = do
 
-                                print("bsi 1: {:1.0f}, hl: {:4.0f}, h2: {:4.0f}, h3: {:4.0f}, bs: 2**{:1.0f}, eta: {:.5f}, do: {:.5f} -> er: {:.3f} in about {:.2f}sec\n".format(bsi, hl, h2, h3, bs, eta, do, averaged_error_rate, time()-last_time))
+                                f.write("bsi: {:1.0f}, hl: {:4.0f}, h2: {:4.0f}, h3: {:4.0f}, bs: 2**{:1.0f}, eta: {:.5f}, do: {:.5f} -> er: {:.3f} in about {:.2f}sec".format(bsi, hl, h2, h3, bs, eta, do, averaged_error_rate, time()-last_time))
 
         if used_hl == hidden_layers1[0]:
             hidden_layers1 = binary_step(hidden_layers1, True)
@@ -224,7 +227,7 @@ def binary_search_AuxNet(hidden_layers1, hidden_layers2, hidden_layers3, batch_s
             dropout_probabilities = binary_step(dropout_probabilities, True)
         else:
             dropout_probabilities = binary_step(dropout_probabilities, False)
-    
+    f.colse()
     return used_hl, used_h2, used_h3, used_bs, used_eta, used_do 
 
 
@@ -232,7 +235,7 @@ def eval_AuxNet():
     hidden_layers1 = [10, 1000]
     hidden_layers2 = [10, 1000]
     hidden_layers3 = [10, 1000]
-    batch_sizes = [3, 50]
+    batch_sizes = [3, 7]
     etas = [1e-3, 1e-1]
     dropout_probabilities = [0, 0.9]
     epochs = 30
@@ -241,7 +244,7 @@ def eval_AuxNet():
 
     filename = "AuxNet_parameters.txt"
     f = open(filename, "w")
-    f.write("hl: {}, h2: {}, h3: {}, bs: 2**{}, eta: {}, do: {}, mp: {}\n".format(hl, h2, h3, bs, eta, do, max_pooling))
+    f.write("hl: {}, h2: {}, h3: {}, bs: 2**{}, eta: {}, do: {}\n".format(hl, h2, h3, bs, eta, do))
     f.close()
 
     filename = "AuxNet_scores.txt"
@@ -274,5 +277,33 @@ def eval_AuxNet():
 
     print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
 
-    f.write("loss: {}, train error rate: {}, test error rate: {}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
+    f.write("[average] loss: {}, train error rate: {}, test error rate: {}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
+    # f.write('[min] loss: {}, train error rate: {}, test_error_rate: {}\n'.)
     f.close()
+
+def run_AuxNet(hl, h2, h3, bs, eta, do):
+    averaged_time = 0
+    averaged_losses = 0
+    averaged_train_error_rate = 0
+    averaged_test_error_rate = 0
+
+    for i in range(NUMBER_OF_EVALUATION_RUNS):
+        start_time = time()
+        model = AuxNet(hl, h2, h3, do)
+        train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
+        losses, train_error_rates, test_error_rates = train_AuxNet(model, eta, train_loader, test_loader)
+        averaged_time += time() - start_time
+        averaged_losses += losses[-1]
+        averaged_train_error_rate += train_error_rates[-1]
+        averaged_test_error_rate += test_error_rates[-1]
+        print('evaluation run {}'.format(i))
+        del model
+
+    averaged_time /= NUMBER_OF_EVALUATION_RUNS
+    averaged_losses /= NUMBER_OF_EVALUATION_RUNS
+    averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
+    averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
+
+    print("loss: {:.5f}, train error rate: {:.5f}, test error rate: {:.5f}, average time {:.5f} \n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate, averaged_time))
+
+
