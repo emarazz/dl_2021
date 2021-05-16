@@ -256,3 +256,25 @@ def eval_SiameseNet():
 
     f.write("loss: {}, train error rate: {}, test error rate: {}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
     f.close()
+
+def run_SiameseNet(hl, h2, h3, bs, eta, do):
+    averaged_losses = 0
+    averaged_train_error_rate = 0
+    averaged_test_error_rate = 0
+
+    for i in range(NUMBER_OF_EVALUATION_RUNS):
+        model = SiameseNet(hl, h2, h3, do)
+        train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
+        losses, train_error_rates, test_error_rates = train_SiameseNet(model, eta, train_loader, test_loader)
+
+        averaged_losses += losses[-1]
+        averaged_train_error_rate += train_error_rates[-1]
+        averaged_test_error_rate += test_error_rates[-1]
+
+        del model
+
+    averaged_losses /= NUMBER_OF_EVALUATION_RUNS
+    averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
+    averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
+
+    print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
