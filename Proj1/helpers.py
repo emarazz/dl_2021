@@ -49,6 +49,8 @@ def plot_results(model, path, savefig=False):
     test_error_rates_mean = test_error_rates.mean(axis=0)
     test_error_rates_std = test_error_rates.std(axis=0)
 
+    print('train error rate - mean: {:.3f} std: {:.3f} || test error rate - mean: {:.3f} std: {:.3f}'.format(train_error_rates_mean[-1],train_error_rates_std[-1],test_error_rates_mean[-1],test_error_rates_std[-1]))
+
     fontsize = 10
     fig, axs = plt.subplots(2, 1, sharex=True)
     fig.suptitle(model.get_str_parameters(), fontsize=fontsize+1)
