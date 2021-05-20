@@ -9,7 +9,7 @@ import os
 
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
-NUMBER_OF_EVALUATION_RUNS = 10
+NUMBER_OF_EVALUATION_RUNS = 1
 """
 optimal parameters: 
     nb_hidden1 = 512
@@ -70,17 +70,17 @@ class BaseNet(nn.Module):
                 type(self).__name__, self.nb_hidden1, self.nb_hidden2, self.dropout_prob)
 
 
-def train_BaseNet(model, eta, train_loader, test_loader, eval_mode=False, optim = 'Adam'):
-    losses = []
+def train_BaseNet(model, eta, epochs, train_loader, optim = 'SGD', print_results=True):
+    model.train() # set training mode for BatchNorm and Dropout
+    
+    train_losses = []
     train_error_rates = []
-    test_error_rates = []
-    epochs = 30
-
+    # test_error_rates = []
+    
     device = get_device() 
     model  = model.to(device)
     criterion = nn.CrossEntropyLoss()
     criterion = criterion.to(device)
-    
 
     if optim == "SGD":
         optimizer = torch.optim.SGD(model.parameters(), lr=eta)
@@ -88,7 +88,6 @@ def train_BaseNet(model, eta, train_loader, test_loader, eval_mode=False, optim 
         optimizer = torch.optim.Adam(model.parameters(), lr=eta)
         
     for e in range(epochs):
-        model.train() # set training mode for BatchNorm and Dropout
         for input_data, target, _ in iter(train_loader):
             output = model(input_data)
             loss = criterion(output, target)
@@ -97,17 +96,53 @@ def train_BaseNet(model, eta, train_loader, test_loader, eval_mode=False, optim 
             loss.backward()
             optimizer.step()
 
-        losses.append(loss)
-        train_error_rates.append(compute_error_rate(model, train_loader)) # model.eval() and torch.no_grad() is used while evaluating
-        test_error_rates.append(compute_error_rate(model, test_loader)) # model.eval() and torch.no_grad() is used while evaluating
+        train_losses.append(loss)
+        train_error_rates.append(compute_error_rate(output=output, target=target)) # model.eval() and torch.no_grad() is used while evaluating
+        # test_error_rates.append(compute_error_rate(model, test_loader)) # model.eval() and torch.no_grad() is used while evaluating
         
-        if ((e%10) == 0):
-            print(get_str_results(e, losses[-1], train_error_rates[-1], test_error_rates[-1]))
-                
-    print(get_str_results(e, losses[-1], train_error_rates[-1], test_error_rates[-1]))
-    # print(70*'_')
+        if print_results:
+            if ((e%10) == 0):
+                print(get_str_results(epoch=e, train_loss= train_losses[-1], train_error_rate= train_error_rates[-1]))#, test_error_rates[-1]))
 
-    return losses, train_error_rates, test_error_rates
+    if print_results:           
+        print(get_str_results(epoch=e-1, train_loss= train_losses[-1], train_error_rate= train_error_rates[-1]))#, test_error_rates[-1]))  
+        print(70*'-')
+
+    return train_losses, train_error_rates#, test_error_rates
+
+@torch.no_grad()
+def eval_BaseNet(model, epochs, test_loader, print_results=True):
+    model.eval() # set eval mode for BatchNorm and Dropout
+
+    test_losses = []
+    test_error_rates = []
+    epochs = 30
+
+    device = get_device() 
+    model  = model.to(device)
+    criterion = nn.CrossEntropyLoss()
+    criterion = criterion.to(device) 
+        
+    for e in range(epochs):
+        model.train() # set training mode for BatchNorm and Dropout
+        for input_data, target, _ in iter(test_loader):
+            output = model(input_data)
+            loss = criterion(output, target)
+
+        test_losses.append(loss)
+        test_error_rates.append(compute_error_rate(output=output, target=target)) # model.eval() and torch.no_grad() is used while evaluating
+        
+        if print_results:
+            if ((e%10) == 0):
+                print(get_str_results(epoch=e, test_loss= test_losses[-1], test_error_rate= test_error_rates[-1]))
+                    
+    if print_results:
+        print(get_str_results(epoch=e, test_loss= test_losses[-1], test_error_rate= test_error_rates[-1])) 
+        print(70*'-')
+
+    return test_losses, test_error_rates
+
+
 
 def compute_center(two_elements_list):
     return (two_elements_list[0]+two_elements_list[1])/2
@@ -118,7 +153,7 @@ def binary_step(two_elements_list, left):
     else:
         return [compute_center(two_elements_list), two_elements_list[1]]
 
-def binary_search_BaseNet(hidden_layers1, hidden_layers2, log2_batch_sizes, etas, dropout_probabilities):
+def binary_search_BaseNet(hidden_layers1, hidden_layers2, dropout_probabilities, log2_batch_sizes, etas, epochs):
     lowest_error_rate = float('inf')
 
     used_hl = -1
@@ -158,8 +193,10 @@ def binary_search_BaseNet(hidden_layers1, hidden_layers2, log2_batch_sizes, etas
                             for r in range(NUMBER_OF_SEARCH_RUNS):
                                 model = BaseNet(hl, h2, do)
                                 train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
-                                _, _, er = train_BaseNet(model, eta, train_loader, test_loader)
-                                error_rate += er[-1]
+                                train_loss, train_er = train_BaseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader)
+                                test_loss, test_er = eval_BaseNet(model=model, epochs=epochs, test_loader=test_loader)
+                                print(get_str_results(epoch=epochs, train_loss=train_loss[-1], test_loss=test_loss[-1], train_error_rate=train_er[-1], test_error_rate=test_er[-1]))
+                                error_rate += train_er[-1]
                                 del model
                             averaged_error_rate = error_rate/NUMBER_OF_SEARCH_RUNS
                             if averaged_error_rate < lowest_error_rate:
@@ -172,11 +209,11 @@ def binary_search_BaseNet(hidden_layers1, hidden_layers2, log2_batch_sizes, etas
 
                             print('-'*70)
                             print("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec".format(bsi, hl, h2, do, log2_bs, eta, averaged_error_rate, time()-last_time))
-                            print('='*70)
+                            print('='*70 +'\n' + '='*70)
                             with open(filename, "a") as f:
                                 f.write("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec\n".format(bsi, hl, h2, do, log2_bs, eta, averaged_error_rate, time()-last_time))
         
-        if ~len_hl and ~len_h2 and ~len_log2_bs and ~len_etas and ~len_do: # if binary search is not possible -> break the loop
+        if not (len_hl or len_h2 or len_log2_bs or len_etas or len_do): # if binary search is not possible -> break the loop
             break
 
         if len_hl:
@@ -209,27 +246,28 @@ def binary_search_BaseNet(hidden_layers1, hidden_layers2, log2_batch_sizes, etas
             else:
                 dropout_probabilities = binary_step(dropout_probabilities, False)
 
-    return used_hl, used_h2, used_log2_bs, used_eta, used_do 
+    return used_hl, used_h2, used_do, used_log2_bs, used_eta, 
 
-def eval_BaseNet(hidden_layers1 = [10, 512], hidden_layers2 = [10, 512], log2_batch_sizes = [4, 7], etas = [1e-3, 1e-1], dropout_probabilities = [0, 0.5], save_tensors=True):
 
-    hl, h2, log2_bs, eta, do = binary_search_BaseNet(hidden_layers1, hidden_layers2, log2_batch_sizes, etas, dropout_probabilities)
+def run_BaseNet(hl, h2, do, log2_bs, eta, epochs, save_tensors=True):
 
     filename = "./BaseNet_parameters.txt"
 
     with open(filename, "w") as f:
-        f.write("hl: {}, h2: {}, bs: 2**{}, eta: {}, do: {}\n".format(hl, h2, log2_bs, eta, do))
+        f.write("hl: {}, h2: {}, do: {}, bs: 2**{}, eta: {}, \n".format(hl, h2, do, log2_bs, eta))
     
     filename = "./BaseNet_scores.txt"
 
     with open(filename, "w") as f:
         f.write("{} {}\n".format(30, NUMBER_OF_EVALUATION_RUNS))
 
-    averaged_losses = 0
+    averaged_train_losses = 0
+    averaged_test_losses = 0
     averaged_train_error_rate = 0
     averaged_test_error_rate = 0
     
-    arr_losses = []
+    arr_train_losses = []
+    arr_test_losses = []
     arr_train_error_rates = []
     arr_test_error_rates = []
 
@@ -241,34 +279,45 @@ def eval_BaseNet(hidden_layers1 = [10, 512], hidden_layers2 = [10, 512], log2_ba
         print('-'*70)
         
         train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
-        losses, train_error_rates, test_error_rates = train_BaseNet(model, eta, train_loader, test_loader)
+        # losses, train_error_rates, test_error_rates = train_BaseNet(model, eta, train_loader, test_loader)
+
+        train_losses, train_error_rates = train_BaseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader)
+        test_losses, test_error_rates = eval_BaseNet(model=model, epochs=epochs, test_loader=test_loader)
+        print(get_str_results(epoch=epochs, train_loss=train_losses[-1], test_loss=test_losses[-1], train_error_rate=train_error_rates[-1], test_error_rate=test_error_rates[-1]))
 
         with open(filename, "a") as f:
-            f.write(" ".join([str(l.item()) for l in losses])+"\n")
+            f.write(" ".join([str(l.item()) for l in train_losses])+"\n")
+            f.write(" ".join([str(l.item()) for l in test_losses])+"\n")
             f.write(" ".join([str(er) for er in train_error_rates])+"\n")
             f.write(" ".join([str(er) for er in test_error_rates])+"\n")
 
-        averaged_losses += losses[-1]
+        averaged_train_losses += train_losses[-1]
+        averaged_test_losses += test_losses[-1]
         averaged_train_error_rate += train_error_rates[-1]
         averaged_test_error_rate += test_error_rates[-1]
 
-        arr_losses.append(losses)
+        arr_train_losses.append(train_losses)
+        arr_test_losses.append(test_losses)
         arr_train_error_rates.append(train_error_rates)
         arr_test_error_rates.append(test_error_rates)
 
         del model
 
-    averaged_losses /= NUMBER_OF_EVALUATION_RUNS
+    averaged_train_losses /= NUMBER_OF_EVALUATION_RUNS
+    averaged_train_losses /= NUMBER_OF_EVALUATION_RUNS
     averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
     averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
 
     with open(filename, "a") as f:
-        f.write("avg_loss: {:.4f}, avg_train_error: {:.4f}, avg_test_error: {:.4f}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
-        print("avg_loss: {:.4f}, avg_train_error: {:.4f}, avg_test_error: {:.4f} saved to file: {}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate, filename))
+        f.write("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_error: {:.4f}, avg_test_error: {:.4f}\n".format(averaged_train_losses, averaged_test_losses, averaged_train_error_rate, averaged_test_error_rate))
+        print("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_error: {:.4f}, avg_test_error: {:.4f} saved to file: {}\n".format(averaged_train_losses, averaged_test_losses, averaged_train_error_rate, averaged_test_error_rate, filename))
+
+    arr_train_losses = torch.tensor(arr_train_losses)
+    arr_test_losses = torch.tensor(arr_test_losses)
+    arr_train_error_rates = torch.tensor(arr_train_error_rates)
+    arr_test_error_rates = torch.tensor(arr_test_error_rates)    
 
     if save_tensors:
-        torch.save([torch.tensor(arr_losses),
-                    torch.tensor(arr_train_error_rates),
-                    torch.tensor(arr_test_error_rates)], 'BaseNet_tensors_to_plot.pt'.format())
+        torch.save([arr_train_losses, arr_test_losses, arr_train_error_rates, arr_test_error_rates], 'BaseNet_tensors_to_plot.pt'.format())
 
-    return arr_losses, arr_train_error_rates, arr_test_error_rates
+    return arr_train_losses, arr_test_losses, arr_train_error_rates, arr_test_error_rates
