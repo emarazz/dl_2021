@@ -73,6 +73,8 @@ def plot_results(hl, h2, do, log2_bs, eta ,train_losses, test_losses, train_erro
     test_error_rates_mean = test_error_rates.mean(axis=0)
     test_error_rates_std = test_error_rates.std(axis=0)
 
+    print('train error rate - mean: {:.3f} std: {:.3f} || test error rate - mean: {:.3f} std: {:.3f}'.format(train_error_rates_mean[-1],train_error_rates_std[-1],test_error_rates_mean[-1],test_error_rates_std[-1]))
+
     fontsize = 10
     fig, axs = plt.subplots(2, 1, sharex=True)
     
