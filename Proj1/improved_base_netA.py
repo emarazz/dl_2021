@@ -5,6 +5,7 @@ from torch.nn import functional as F
 from data import *
 from helpers import *
 from time import time
+import os
 
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
@@ -20,6 +21,10 @@ optimal parameters:
 class BaseNet(nn.Module):
     def __init__(self, nb_hidden1, nb_hidden2, dropout_prob=0):
         super().__init__()
+
+        self.nb_hidden1 = nb_hidden1
+        self.nb_hidden2 = nb_hidden2
+        self.dropout_prob = dropout_prob
         
         # fully convoluted
         self.conv1 = nn.Conv2d( 2, 32, kernel_size=5) 
@@ -27,20 +32,21 @@ class BaseNet(nn.Module):
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3) 
         
         # fully connected 
-        self.fc1 = nn.Linear(256, nb_hidden1)
-        self.fc2 = nn.Linear(nb_hidden1, nb_hidden2)
-        self.fc3 = nn.Linear(nb_hidden2, 2)
+        self.fc1 = nn.Linear(256, self.nb_hidden1)
+        self.fc2 = nn.Linear(self.nb_hidden1, self.nb_hidden2)
+        self.fc3 = nn.Linear(self.nb_hidden2, 2)
         
         self.max_pool = nn.MaxPool2d(kernel_size = 2)
-        self.dropout = nn.Dropout(dropout_prob)
+        self.dropout = nn.Dropout(self.dropout_prob)
         # batch norms
         self.batchNorm1 = nn.BatchNorm2d(64)
-        self.batchNorm2 = nn.BatchNorm1d(nb_hidden1)
-        self.batchNorm3 = nn.BatchNorm1d(nb_hidden2)
+        self.batchNorm2 = nn.BatchNorm1d(self.nb_hidden1)
+        self.batchNorm3 = nn.BatchNorm1d(self.nb_hidden2)
         self.batchNorm4 = nn.BatchNorm2d(32)
         self.batchNorm5 = nn.BatchNorm2d(64)
 
         self.relu = nn.LeakyReLU(0.1)
+
     def forward(self, x): 
         x = self.relu(self.batchNorm4(self.conv1(x)))           # 32x10x10
         x = self.relu(self.batchNorm5(self.conv2(x)))           # 64x6x6
@@ -58,6 +64,11 @@ class BaseNet(nn.Module):
         x = self.dropout(x)     # nb_hidden2x1
         x = self.fc3(x)         # 2x1
         return x
+    
+    def get_str_parameters(self):
+        return '{} - nb_hidden1={}, nb_hidden2={}, dropout={}'.format(
+                type(self).__name__, self.nb_hidden1, self.nb_hidden2, self.dropout_prob)
+
 
 def train_BaseNet(model, eta, train_loader, test_loader, eval_mode=False, optim = 'Adam'):
     losses = []
@@ -77,6 +88,7 @@ def train_BaseNet(model, eta, train_loader, test_loader, eval_mode=False, optim 
         optimizer = torch.optim.Adam(model.parameters(), lr=eta)
         
     for e in range(epochs):
+        model.train() # set training mode for BatchNorm and Dropout
         for input_data, target, _ in iter(train_loader):
             output = model(input_data)
             loss = criterion(output, target)
@@ -86,14 +98,14 @@ def train_BaseNet(model, eta, train_loader, test_loader, eval_mode=False, optim 
             optimizer.step()
 
         losses.append(loss)
-        train_error_rates.append(compute_error_rate(model, train_loader))
-        test_error_rates.append(compute_error_rate(model, test_loader))
+        train_error_rates.append(compute_error_rate(model, train_loader)) # model.eval() and torch.no_grad() is used while evaluating
+        test_error_rates.append(compute_error_rate(model, test_loader)) # model.eval() and torch.no_grad() is used while evaluating
         
         if ((e%10) == 0):
-            print(get_str_results(e, train_losses[-1], train_acc[-1], test_acc[-1]))
+            print(get_str_results(e, losses[-1], train_error_rates[-1], test_error_rates[-1]))
                 
-    print(get_str_results(e, train_losses[-1], train_acc[-1], test_acc[-1]))
-    print(60*'-')
+    print(get_str_results(e, losses[-1], train_error_rates[-1], test_error_rates[-1]))
+    # print(70*'_')
 
     return losses, train_error_rates, test_error_rates
 
@@ -106,37 +118,46 @@ def binary_step(two_elements_list, left):
     else:
         return [compute_center(two_elements_list), two_elements_list[1]]
 
-def binary_search_BaseNet(hidden_layers1, hidden_layers2, batch_sizes, etas, dropout_probabilities):
+def binary_search_BaseNet(hidden_layers1, hidden_layers2, log2_batch_sizes, etas, dropout_probabilities):
     lowest_error_rate = float('inf')
 
     used_hl = -1
     used_h2 = -1
-    used_bs = -1
+    used_log2_bs = -1
     used_eta = -1
     used_do = -1
 
-    filename = "BaseNet_binarysearch.txt"
-    f = open(filename, "w")
+    filename = "./BaseNet_binarysearch.txt"
+    if os.path.exists(filename):
+        os.remove(filename)
+    
     for bsi in range(BINARY_SEARCH_ITERATIONS):
-        assert(len(hidden_layers1) == 2)
-        assert(len(hidden_layers2) == 2)
-        assert(len(batch_sizes) == 2)
-        assert(len(dropout_probabilities) == 2)
+        # assert(len(hidden_layers1) == 2)
+        # assert(len(hidden_layers2) == 2)
+        # assert(len(log2_batch_sizes) == 2)
+        # assert(len(etas) == 2)
+        # assert(len(dropout_probabilities) == 2)
+
+        len_hl = len(hidden_layers1) == 2
+        len_h2 = len(hidden_layers2) == 2
+        len_log2_bs = len(log2_batch_sizes) == 2
+        len_etas = len(etas) == 2
+        len_do = len(dropout_probabilities) == 2
 
         hidden_layers1 = [int(hl) for hl in hidden_layers1]
         hidden_layers2 = [int(h2) for h2 in hidden_layers2]
-        batch_sizes = [int(bs) for bs in batch_sizes]
+        log2_batch_sizes = [int(log2_bs) for log2_bs in log2_batch_sizes]
 
         for hl in hidden_layers1:
             for h2 in hidden_layers2:
-                for bs in batch_sizes:
+                for log2_bs in log2_batch_sizes:
                      for eta in etas:
                         for do in dropout_probabilities:
                             last_time = time()
                             error_rate = 0
                             for r in range(NUMBER_OF_SEARCH_RUNS):
                                 model = BaseNet(hl, h2, do)
-                                train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
+                                train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
                                 _, _, er = train_BaseNet(model, eta, train_loader, test_loader)
                                 error_rate += er[-1]
                                 del model
@@ -145,77 +166,95 @@ def binary_search_BaseNet(hidden_layers1, hidden_layers2, batch_sizes, etas, dro
                                 lowest_error_rate = averaged_error_rate
                                 used_hl = hl
                                 used_h2 = h2
-                                used_bs = bs
+                                used_log2_bs = log2_bs
                                 used_eta = eta
                                 used_do = do
 
-                            print("bsi: {:1.0f}, hl: {:4.0f}, h2: {:4.0f}, bs: 2**{:1.0f}, eta: {:.5f}, do: {:.5f}-> er: {:.3f} in about {:.2f}sec".format(bsi, hl, h2, bs, eta, do, averaged_error_rate, time()-last_time))
-                            f.write("bsi: {:1.0f}, hl: {:4.0f}, h2: {:4.0f}, bs: 2**{:1.0f}, eta: {:.5f}, do: {:.5f}-> er: {:.3f} in about {:.2f}sec\n".format(bsi, hl, h2, bs, eta, do, averaged_error_rate, time()-last_time))
+                            print('-'*70)
+                            print("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec".format(bsi, hl, h2, do, log2_bs, eta, averaged_error_rate, time()-last_time))
+                            print('='*70)
+                            with open(filename, "a") as f:
+                                f.write("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec\n".format(bsi, hl, h2, do, log2_bs, eta, averaged_error_rate, time()-last_time))
         
-        if used_hl == hidden_layers1[0]:
-            hidden_layers1 = binary_step(hidden_layers1, True)
-        else:
-            hidden_layers1 = binary_step(hidden_layers1, False)
+        if ~len_hl and ~len_h2 and ~len_log2_bs and ~len_etas and ~len_do: # if binary search is not possible -> break the loop
+            break
+
+        if len_hl:
+            if used_hl == hidden_layers1[0]:
+                hidden_layers1 = binary_step(hidden_layers1, True)
+            else:
+                hidden_layers1 = binary_step(hidden_layers1, False)
         
-        if used_h2 == hidden_layers2[0]:
-            hidden_layers2 = binary_step(hidden_layers2, True)
-        else:
-            hidden_layers2 = binary_step(hidden_layers2, False)
+        if  len_h2:
+            if used_h2 == hidden_layers2[0]:
+                hidden_layers2 = binary_step(hidden_layers2, True)
+            else:
+                hidden_layers2 = binary_step(hidden_layers2, False)
         
-        if used_bs == batch_sizes[0]:
-            batch_sizes = binary_step(batch_sizes, True)
-        else:
-            batch_sizes = binary_step(batch_sizes, False)
+        if len_log2_bs:
+            if used_log2_bs == log2_batch_sizes[0]:
+                log2_batch_sizes = binary_step(log2_batch_sizes, True)
+            else:
+                log2_batch_sizes = binary_step(log2_batch_sizes, False)
 
+        if len_etas:
+            if used_eta == etas[0]:
+                etas = binary_step(etas, True)
+            else:
+                etas = binary_step(etas, False)
 
-        if used_eta == etas[0]:
-            etas = binary_step(etas, True)
-        else:
-            etas = binary_step(etas, False)
+        if len_do:
+            if used_do == dropout_probabilities[0]:
+                dropout_probabilities = binary_step(dropout_probabilities, True)
+            else:
+                dropout_probabilities = binary_step(dropout_probabilities, False)
 
-        if used_do == dropout_probabilities[0]:
-            dropout_probabilities = binary_step(dropout_probabilities, True)
-        else:
-            dropout_probabilities = binary_step(dropout_probabilities, False)
-    f.close()
-    return used_hl, used_h2,  used_bs, used_eta, used_do 
+    return used_hl, used_h2, used_log2_bs, used_eta, used_do 
 
-def eval_BaseNet():
-    hidden_layers1 = [10, 512]
-    hidden_layers2 = [10, 512]
-    batch_sizes = [4, 7]
-    etas = [1e-3, 1e-1]
-    dropout_probabilities = [0, 0.5]
+def eval_BaseNet(hidden_layers1 = [10, 512], hidden_layers2 = [10, 512], log2_batch_sizes = [4, 7], etas = [1e-3, 1e-1], dropout_probabilities = [0, 0.5], save_tensors=True):
 
-    hl, h2, bs, eta, do = binary_search_BaseNet(hidden_layers1, hidden_layers2, batch_sizes, etas, dropout_probabilities)
+    hl, h2, log2_bs, eta, do = binary_search_BaseNet(hidden_layers1, hidden_layers2, log2_batch_sizes, etas, dropout_probabilities)
 
-    filename = "BaseNet_parameters.txt"
+    filename = "./BaseNet_parameters.txt"
 
-    f = open(filename, "w")
-    f.write("hl: {}, h2: {}, bs: 2**{}, eta: {}, do: {}\n".format(hl, h2, bs, eta, do))
-    f.close()
+    with open(filename, "w") as f:
+        f.write("hl: {}, h2: {}, bs: 2**{}, eta: {}, do: {}\n".format(hl, h2, log2_bs, eta, do))
+    
+    filename = "./BaseNet_scores.txt"
 
-    filename = "BaseNet_scores.txt"
-
-    f = open(filename, "w")
-    f.write("{} {}\n".format(30, NUMBER_OF_EVALUATION_RUNS))
+    with open(filename, "w") as f:
+        f.write("{} {}\n".format(30, NUMBER_OF_EVALUATION_RUNS))
 
     averaged_losses = 0
     averaged_train_error_rate = 0
     averaged_test_error_rate = 0
+    
+    arr_losses = []
+    arr_train_error_rates = []
+    arr_test_error_rates = []
 
     for i in range(NUMBER_OF_EVALUATION_RUNS):
         model = BaseNet(hl, h2, do)
-        train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
+
+        print('='*70)
+        print('run: {:2d} - '.format(i) + model.get_str_parameters() + ', batch_size=2**{}, eta={:.4E}'.format(log2_bs,eta))
+        print('-'*70)
+        
+        train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
         losses, train_error_rates, test_error_rates = train_BaseNet(model, eta, train_loader, test_loader)
 
-        f.write(" ".join([str(l.item()) for l in losses])+"\n")
-        f.write(" ".join([str(er) for er in train_error_rates])+"\n")
-        f.write(" ".join([str(er) for er in test_error_rates])+"\n")
+        with open(filename, "a") as f:
+            f.write(" ".join([str(l.item()) for l in losses])+"\n")
+            f.write(" ".join([str(er) for er in train_error_rates])+"\n")
+            f.write(" ".join([str(er) for er in test_error_rates])+"\n")
 
         averaged_losses += losses[-1]
         averaged_train_error_rate += train_error_rates[-1]
         averaged_test_error_rate += test_error_rates[-1]
+
+        arr_losses.append(losses)
+        arr_train_error_rates.append(train_error_rates)
+        arr_test_error_rates.append(test_error_rates)
 
         del model
 
@@ -223,8 +262,13 @@ def eval_BaseNet():
     averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
     averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
 
-    print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
+    with open(filename, "a") as f:
+        f.write("avg_loss: {:.4f}, avg_train_error: {:.4f}, avg_test_error: {:.4f}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
+        print("avg_loss: {:.4f}, avg_train_error: {:.4f}, avg_test_error: {:.4f} saved to file: {}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate, filename))
 
-    f.write("loss: {}, train error rate: {}, test error rate: {}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
-    f.close()
+    if save_tensors:
+        torch.save([torch.tensor(arr_losses),
+                    torch.tensor(arr_train_error_rates),
+                    torch.tensor(arr_test_error_rates)], 'BaseNet_tensors_to_plot.pt'.format())
 
+    return arr_losses, arr_train_error_rates, arr_test_error_rates
