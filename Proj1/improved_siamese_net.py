@@ -413,7 +413,7 @@ def run_SiameseNet(hl, h2, h3, do, log2_bs, eta, epochs, save_tensors=True, cls=
     arr_val_accs = torch.tensor(arr_val_accs)    
 
     if save_tensors:
-        torch.save([arr_train_losses, arr_val_losses, arr_train_accs, arr_val_accs], '{}_tensors_to_plot.pt'.format(SiameseNet))
+        torch.save([arr_train_losses, arr_val_losses, arr_train_accs, arr_val_accs], '{}_tensors_to_plot.pt'.format('SiameseNet'))
 
     return arr_train_losses, arr_val_losses, arr_train_accs, arr_val_accs
 

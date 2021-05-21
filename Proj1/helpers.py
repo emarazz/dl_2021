@@ -122,7 +122,7 @@ def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, val_losses, trai
 
     axs[1].set_ylabel('Accuracy', fontsize=fontsize)
     axs[1].set_xlabel('epochs', fontsize=fontsize)
-    axs[1].set_ylim(0, 0.6)
+    axs[1].set_ylim(0.5, 1.1)
     axs[1].legend()
     axs[1].grid(True)
        
