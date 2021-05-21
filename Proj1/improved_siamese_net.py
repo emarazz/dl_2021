@@ -9,7 +9,7 @@ import os
 
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
-NUMBER_OF_EVALUATION_RUNS = 10
+NUMBER_OF_EVALUATION_RUNS = 2
 """
 siamese net based on improved AuxNet
 """
@@ -146,11 +146,13 @@ class CNN_AUX_WS(nn.Module):
                 type(self).__name__, self.nb_hidden1, self.nb_hidden2, self.nb_hidden3, self.dropout_prob)
 
 
-def train_SiameseNet(model, eta, epochs, train_loader, optim = 'Adam', print_results=True):
+def train_SiameseNet(model, eta, epochs, train_loader, val_loader, optim = 'Adam', print_results=True):
     model.train()
     
     train_losses = []
-    train_error_rates = []
+    val_losses = []
+    train_accs = []
+    val_accs = []
     
     device = get_device() 
     model  = model.to(device)
@@ -163,6 +165,9 @@ def train_SiameseNet(model, eta, epochs, train_loader, optim = 'Adam', print_res
         optimizer = torch.optim.Adam(model.parameters(), lr=eta, betas=(0.99, 0.999))
 
     for e in range(epochs):
+        model.train()
+        # print(model.training)
+        
         for input_data, target, class_data in iter(train_loader):
             output_aux1, output_aux2, output = model(input_data)
             # auxiliary losses
@@ -172,59 +177,58 @@ def train_SiameseNet(model, eta, epochs, train_loader, optim = 'Adam', print_res
             # loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
             lam = 0.5
             loss = lam * criterion(output, target) + loss_aux1 + loss_aux2
-            
-            # print(loss.item())
-
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
 
-        train_losses.append(loss)
-        train_error_rates.append(compute_error_rate(output=output, target=target)) # model.eval() and torch.no_grad() is used while evaluating
+        train_losses.append(eval_model(model=model, data_loader=train_loader))
+        val_losses.append(eval_model(model=model, data_loader=val_loader))
+        train_accs.append(compute_acc(model=model,data_loader=train_loader)) # model.eval() and torch.no_grad() is used while evaluating
+        val_accs.append(compute_acc(model=model,data_loader=val_loader)) # model.eval() and torch.no_grad() is used while evaluating
         
         if print_results:
             if ((e%10) == 0):
-                print(get_str_results(epoch=e, train_loss= train_losses[-1], train_error_rate= train_error_rates[-1]))#, test_error_rates[-1]))
+                print(get_str_results(epoch=e, train_loss= train_losses[-1], val_loss=val_losses[-1] , train_acc= train_accs[-1], val_acc=val_accs[-1]))
 
     if print_results:           
-        print(get_str_results(epoch=e, train_loss= train_losses[-1], train_error_rate= train_error_rates[-1]))#, test_error_rates[-1]))  
+        print(get_str_results(epoch=e, train_loss= train_losses[-1], val_loss=val_losses[-1] , train_acc= train_accs[-1], val_acc=val_accs[-1]))
         print(70*'-')
 
-    return train_losses, train_error_rates
+    return train_losses, val_losses, train_accs, val_accs
 
-@torch.no_grad()
-def eval_SiameseNet(model, epochs, test_loader, print_results=True):
-    model.eval()
+# @torch.no_grad()
+# def eval_SiameseNet(model, epochs, val_loader, print_results=True):
+#     model.eval()
     
-    test_losses = []
-    test_error_rates = []
+#     val_losses = []
+#     val_acc_rates = []
     
-    device = get_device() 
-    model  = model.to(device)
-    criterion = nn.CrossEntropyLoss()
-    criterion = criterion.to(device)
+#     device = get_device() 
+#     model  = model.to(device)
+#     criterion = nn.CrossEntropyLoss()
+#     criterion = criterion.to(device)
 
-    for e in range(epochs):
-        for input_data, target, class_data in iter(test_loader):
-            output_aux1, output_aux2, output = model(input_data)
-            # auxiliary losses
-            loss_aux1 = criterion(output_aux1, class_data[:,0])
-            loss_aux2 = criterion(output_aux2, class_data[:,1])
-            # total losses
-            loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
+#     for e in range(epochs):
+#         for input_data, target, class_data in iter(val_loader):
+#             output_aux1, output_aux2, output = model(input_data)
+#             # auxiliary losses
+#             loss_aux1 = criterion(output_aux1, class_data[:,0])
+#             loss_aux2 = criterion(output_aux2, class_data[:,1])
+#             # total losses
+#             loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
 
-        test_losses.append(loss)
-        test_error_rates.append(compute_error_rate(output=output, target=target)) # model.eval() and torch.no_grad() is used while evaluating
+#         val_losses.append(loss)
+#         val_acc_rates.append(compute_acc_rate(output=output, target=target)) # model.eval() and torch.no_grad() is used while evaluating
         
-        if print_results:
-            if ((e%10) == 0):
-                print(get_str_results(epoch=e, test_loss= test_losses[-1], test_error_rate= test_error_rates[-1]))#, test_error_rates[-1]))
+#         if print_results:
+#             if ((e%10) == 0):
+#                 print(get_str_results(epoch=e, val_loss= val_losses[-1], val_acc_rate= val_acc_rates[-1]))#, val_acc_rates[-1]))
 
-    if print_results:           
-        print(get_str_results(epoch=e, test_loss= test_losses[-1], test_error_rate= test_error_rates[-1]))#, test_error_rates[-1]))  
-        print(70*'-')
+#     if print_results:           
+#         print(get_str_results(epoch=e, val_loss= val_losses[-1], val_acc_rate= val_acc_rates[-1]))#, val_acc_rates[-1]))  
+#         print(70*'-')
 
-    return test_losses, test_error_rates
+#     return val_losses, val_acc_rates
 
 
 def compute_center(two_elements_list):
@@ -237,7 +241,7 @@ def binary_step(two_elements_list, left):
         return [compute_center(two_elements_list), two_elements_list[1]]
 
 def binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, dropout_probabilities, log2_batch_sizes, etas, epochs, cls=SiameseNet):
-    lowest_error_rate = float('inf')
+    highest_acc = float('-inf')
     
     used_hl = -1
     used_h2 = -1
@@ -277,18 +281,17 @@ def binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, dro
                         for eta in etas:
                             for do in dropout_probabilities:
                                 last_time = time()
-                                error_rate = 0
+                                acc_cum = 0
                                 for r in range(NUMBER_OF_SEARCH_RUNS):
                                     model = cls(hl, h2, h3, do) # By default cls = SiamesetNet
-                                    train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
-                                    train_loss, train_er = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader)
-                                    test_loss, test_er = eval_SiameseNet(model=model, epochs=epochs, test_loader=test_loader)
-                                    print(get_str_results(epoch=epochs-1, train_loss=train_loss[-1], test_loss=test_loss[-1], train_error_rate=train_er[-1], test_error_rate=test_er[-1]))
-                                    error_rate += train_er[-1]
+                                    train_loader, val_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
+                                    _, _, train_accs, _ = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader, val_loader=val_loader)
+                                    # print(get_str_results(epoch=e, train_loss= train_losses[-1], val_loss=val_losses[-1] , train_acc= train_accs[-1], val_acc=val_accs[-1]))
+                                    acc_cum += train_accs[-1]
                                     del model
-                                averaged_error_rate = error_rate/NUMBER_OF_SEARCH_RUNS
-                                if averaged_error_rate < lowest_error_rate:
-                                    lowest_error_rate = averaged_error_rate
+                                averaged_acc = acc_cum/NUMBER_OF_SEARCH_RUNS
+                                if averaged_acc > highest_acc:
+                                    highest_acc = highest_acc
                                     used_hl = hl
                                     used_h2 = h2
                                     used_h3 = h3
@@ -297,10 +300,10 @@ def binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, dro
                                     used_do = do
                                 
                                 print('-'*70)
-                                print("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec".format(bsi, hl, h2, do, log2_bs, eta, averaged_error_rate, time()-last_time))
+                                print("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec".format(bsi, hl, h2, do, log2_bs, eta, averaged_acc, time()-last_time))
                                 print('='*70 +'\n' + '='*70)
                                 with open(filename, "a") as f:
-                                    f.write("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec\n".format(bsi, hl, h2, do, log2_bs, eta, averaged_error_rate, time()-last_time))
+                                    f.write("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec\n".format(bsi, hl, h2, do, log2_bs, eta, averaged_acc, time()-last_time))
         
         if not (len_hl or len_h2 or len_log2_bs or len_etas or len_do): # if binary search is not possible -> break the loop
             break
@@ -356,15 +359,15 @@ def run_SiameseNet(hl, h2, h3, do, log2_bs, eta, epochs, save_tensors=True, cls=
     with open(filename, "w") as f:
         f.write("{} {}\n".format(epochs, NUMBER_OF_EVALUATION_RUNS))
 
-    averaged_train_losses = 0
-    averaged_test_losses = 0
-    averaged_train_error_rate = 0
-    averaged_test_error_rate = 0
+    averaged_train_loss = 0
+    averaged_val_loss = 0
+    averaged_train_acc = 0
+    averaged_val_acc = 0
 
     arr_train_losses = []
-    arr_test_losses = []
-    arr_train_error_rates = []
-    arr_test_error_rates = []
+    arr_val_losses = []
+    arr_train_accs = []
+    arr_val_accs = []
 
     for i in range(NUMBER_OF_EVALUATION_RUNS):
         model = cls(hl, h2, h3, do)
@@ -373,66 +376,65 @@ def run_SiameseNet(hl, h2, h3, do, log2_bs, eta, epochs, save_tensors=True, cls=
         print('run: {:2d} - '.format(i) + model.get_str_parameters() + ', batch_size=2**{}, eta={:.4E}'.format(log2_bs,eta))
         print('-'*70)
 
-        train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
-        train_losses, train_error_rates = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader)
-        test_losses, test_error_rates = eval_SiameseNet(model=model, epochs=epochs, test_loader=test_loader)
-        print(get_str_results(epoch=epochs-1, train_loss=train_losses[-1], test_loss=test_losses[-1], train_error_rate=train_error_rates[-1], test_error_rate=test_error_rates[-1]))
+        train_loader, val_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
+        train_losses, val_losses, train_accs, val_accs  = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader, val_loader=val_loader)
+        # print(get_str_results(epoch=epochs-1, train_loss=train_losses[-1], val_loss=val_losses[-1], train_acc=train_accs[-1], val_acc=val_accs[-1]))
 
         with open(filename, "a") as f:
             f.write(" ".join([str(l.item()) for l in train_losses])+"\n")
-            f.write(" ".join([str(l.item()) for l in test_losses])+"\n")
-            f.write(" ".join([str(er) for er in train_error_rates])+"\n")
-            f.write(" ".join([str(er) for er in test_error_rates])+"\n")
+            f.write(" ".join([str(l.item()) for l in val_losses])+"\n")
+            f.write(" ".join([str(er) for er in train_accs])+"\n")
+            f.write(" ".join([str(er) for er in val_accs])+"\n")
 
-        averaged_train_losses += train_losses[-1]
-        averaged_test_losses += test_losses[-1]
-        averaged_train_error_rate += train_error_rates[-1]
-        averaged_test_error_rate += test_error_rates[-1]
+        averaged_train_loss += train_losses[-1]
+        averaged_val_loss += val_losses[-1]
+        averaged_train_acc += train_accs[-1]
+        averaged_val_acc += val_accs[-1]
 
         arr_train_losses.append(train_losses)
-        arr_test_losses.append(test_losses)
-        arr_train_error_rates.append(train_error_rates)
-        arr_test_error_rates.append(test_error_rates)
+        arr_val_losses.append(val_losses)
+        arr_train_accs.append(train_accs)
+        arr_val_accs.append(val_accs)
 
         del model
 
-    averaged_train_losses /= NUMBER_OF_EVALUATION_RUNS
-    averaged_test_losses /= NUMBER_OF_EVALUATION_RUNS
-    averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
-    averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
+    averaged_train_loss /= NUMBER_OF_EVALUATION_RUNS
+    averaged_val_loss /= NUMBER_OF_EVALUATION_RUNS
+    averaged_train_acc /= NUMBER_OF_EVALUATION_RUNS
+    averaged_val_acc /= NUMBER_OF_EVALUATION_RUNS
 
     with open(filename, "a") as f:
-        f.write("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_error: {:.4f}, avg_test_error: {:.4f}\n".format(averaged_train_losses, averaged_test_losses, averaged_train_error_rate, averaged_test_error_rate))
-        print("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_error: {:.4f}, avg_test_error: {:.4f} saved to file: {}\n".format(averaged_train_losses, averaged_test_losses, averaged_train_error_rate, averaged_test_error_rate, filename))
+        f.write("avg_train_loss: {:.4f}, avg_val_loss: {:.4f} ,avg_train_error: {:.4f}, avg_val_error: {:.4f}\n".format(averaged_train_loss, averaged_val_loss, averaged_train_acc, averaged_val_acc))
+        print("avg_train_loss: {:.4f}, avg_val_loss: {:.4f} ,avg_train_error: {:.4f}, avg_val_error: {:.4f} saved to file: {}\n".format(averaged_train_loss, averaged_val_loss, averaged_train_acc, averaged_val_acc, filename))
 
     arr_train_losses = torch.tensor(arr_train_losses)
-    arr_test_losses = torch.tensor(arr_test_losses)
-    arr_train_error_rates = torch.tensor(arr_train_error_rates)
-    arr_test_error_rates = torch.tensor(arr_test_error_rates)    
+    arr_val_losses = torch.tensor(arr_val_losses)
+    arr_train_accs = torch.tensor(arr_train_accs)
+    arr_val_accs = torch.tensor(arr_val_accs)    
 
     if save_tensors:
-        torch.save([arr_train_losses, arr_test_losses, arr_train_error_rates, arr_test_error_rates], 'AuxNet_tensors_to_plot.pt'.format())
+        torch.save([arr_train_losses, arr_val_losses, arr_train_accs, arr_val_accs], '{}_tensors_to_plot.pt'.format(SiameseNet))
 
-    return arr_train_losses, arr_test_losses, arr_train_error_rates, arr_test_error_rates
+    return arr_train_losses, arr_val_losses, arr_train_accs, arr_val_accs
 
 # def run_SiameseNet(hl, h2, h3, bs, eta, do):
 #     averaged_losses = 0
-#     averaged_train_error_rate = 0
-#     averaged_test_error_rate = 0
+#     averaged_train_acc = 0
+#     averaged_val_acc = 0
 
 #     for i in range(NUMBER_OF_EVALUATION_RUNS):
 #         model = SiameseNet(hl, h2, h3, do)
-#         train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
-#         losses, train_error_rates, test_error_rates = train_SiameseNet(model, eta, train_loader, test_loader)
+#         train_loader, val_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
+#         losses, train_acc_rates, val_acc_rates = train_SiameseNet(model, eta, train_loader, val_loader)
 
 #         averaged_losses += losses[-1]
-#         averaged_train_error_rate += train_error_rates[-1]
-#         averaged_test_error_rate += test_error_rates[-1]
+#         averaged_train_acc += train_acc_rates[-1]
+#         averaged_val_acc += val_acc_rates[-1]
 
 #         del model
 
 #     averaged_losses /= NUMBER_OF_EVALUATION_RUNS
-#     averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
-#     averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
+#     averaged_train_acc /= NUMBER_OF_EVALUATION_RUNS
+#     averaged_val_acc /= NUMBER_OF_EVALUATION_RUNS
 
-#     print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
+#     print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_acc, averaged_val_acc))

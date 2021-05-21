@@ -1,32 +1,56 @@
 import torch
+from torch import nn
+
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import datetime as datetime
 
 
-# @ torch.no_grad()
-# def compute_error_rate(model, data_loader):
-#     model.eval()  
-#     nb_errors = 0
+@ torch.no_grad()
+def compute_acc(model, data_loader):
+    model.eval()  
+    # print(model.training)
 
-#     for input_data, target, _ in iter(data_loader):
-#         output = model(input_data)
-#         for i, out in enumerate(output):
-#             pred_target = out.max(0)[1].item()
-#             if (target[i]) != pred_target:
-#                 nb_errors += 1
+    nb_errors = 0
+    for input_data, target, _ in iter(data_loader):
+        _,_,output = model(input_data)
+        for i, out in enumerate(output):
+            pred_target = out.max(0)[1].item()
+            if (target[i]) != pred_target:
+                nb_errors += 1
 
-#     error_rate = nb_errors/len(data_loader.dataset)
+    error_rate = nb_errors/len(data_loader.dataset)
+    # print(len(data_loader.dataset))
+    return 1 - error_rate
 
-#     return error_rate
+@ torch.no_grad()
+def eval_model(model , data_loader):
+    model.eval()
+
+    criterion = nn.CrossEntropyLoss(reduction='none')
+
+    losses = []
+    for input_data, target, class_data in iter(data_loader):
+        output_aux1, output_aux2, output = model(input_data)
+        loss_aux1 = criterion(output_aux1, class_data[:,0])
+        loss_aux2 = criterion(output_aux2, class_data[:,1])
+        # total losses
+        # loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
+        lam = 0.5
+        loss = lam * criterion(output, target) + loss_aux1 + loss_aux2
+        losses.append(loss)
+    
+    return torch.cat(losses).mean()
+
 
 @torch.no_grad()
 def compute_error_rate(output, target):
     return 1/output.size(0) * (torch.max(output, 1)[1] != target).long().sum()
 
-@torch.no_grad()
-def compute_acc(output, target):
-    return 1/output.size(0) * (torch.max(output, 1)[1] == target).long().sum()
+# @torch.no_grad()
+# def compute_acc(output, target):
+
+#     return 1/output.size(0) * (torch.max(output, 1)[1] == target).long().sum()
 
 
 
@@ -43,7 +67,7 @@ def get_device():
         device = 'cpu'
     return device
 
-def get_str_results(epoch=None, train_loss=None, test_loss=None, train_error_rate=None, test_error_rate=None):
+def get_str_results(epoch=None, train_loss=None, val_loss=None, train_acc=None, val_acc=None):
     to_print=''
 
     if epoch is not None:
@@ -52,30 +76,30 @@ def get_str_results(epoch=None, train_loss=None, test_loss=None, train_error_rat
     if train_loss is not None:
         to_print += '- train_loss: {:6.4f} '.format(train_loss)
                         
-    if test_loss is not None:
-        to_print += '- test_loss: {:6.4f} '.format(test_loss)
+    if val_loss is not None:
+        to_print += '- val_loss: {:6.4f} '.format(val_loss)
 
-    if train_error_rate is not None:
-        to_print += '- train_error_rate: {:.4f} '.format(train_error_rate)
+    if train_acc is not None:
+        to_print += '- train_acc: {:.4f} '.format(train_acc)
     
-    if test_error_rate is not None:
-        to_print += '- test_error_rate: {:.4f} '.format(test_error_rate)
+    if val_acc is not None:
+        to_print += '- val_acc: {:.4f} '.format(val_acc)
     
     return to_print
 
-def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, test_losses, train_error_rates, test_error_rates, savefig=False):
+def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, val_losses, train_accs, val_accs, savefig=False):
     
     # Get the means and std
     train_losses_mean = train_losses.mean(axis=0)
     train_losses_std = train_losses.std(axis=0)
-    test_losses_mean = test_losses.mean(axis=0)
-    test_losses_std = test_losses.std(axis=0)
-    train_error_rates_mean = train_error_rates.mean(axis=0)
-    train_error_rates_std = train_error_rates.std(axis=0)
-    test_error_rates_mean = test_error_rates.mean(axis=0)
-    test_error_rates_std = test_error_rates.std(axis=0)
+    val_losses_mean = val_losses.mean(axis=0)
+    val_losses_std = val_losses.std(axis=0)
+    train_accs_mean = train_accs.mean(axis=0)
+    train_accs_std = train_accs.std(axis=0)
+    val_accs_mean = val_accs.mean(axis=0)
+    val_accs_std = val_accs.std(axis=0)
 
-    print('train error rate - mean: {:.3f} std: {:.3f} || test error rate - mean: {:.3f} std: {:.3f}'.format(train_error_rates_mean[-1],train_error_rates_std[-1],test_error_rates_mean[-1],test_error_rates_std[-1]))
+    print('train acc - mean: {:.3f} std: {:.3f} || val acc - mean: {:.3f} std: {:.3f}'.format(train_accs_mean[-1],train_accs_std[-1],val_accs_mean[-1],val_accs_std[-1]))
 
     fontsize = 10
     fig, axs = plt.subplots(2, 1, sharex=True)
@@ -86,17 +110,17 @@ def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, test_losses, tra
 
     # plot the train loss
     axs[0].errorbar(torch.arange(0,train_losses_mean.size(0)), train_losses_mean, train_losses_std/2, label='train_loss', capsize=3)
-    axs[0].errorbar(torch.arange(0,test_losses_mean.size(0)), test_losses_mean, test_losses_std/2, label='test_loss', capsize=3)
+    axs[0].errorbar(torch.arange(0,val_losses_mean.size(0)), val_losses_mean, val_losses_std/2, label='val_loss', capsize=3)
 
     axs[0].set_ylabel('loss', fontsize=fontsize)
     axs[0].legend()
     axs[0].grid(True)
 
-    # plot the train_error_rate and test_error_rate
-    axs[1].errorbar(torch.arange(0,train_error_rates_mean.size(0)), train_error_rates_mean ,train_error_rates_std/2, label='train_error_rate', capsize=3)
-    axs[1].errorbar(torch.arange(0,test_error_rates_mean.size(0)), test_error_rates_mean ,test_error_rates_std/2, label='test_error_rate', capsize=3)
+    # plot the train_error_rate and val_error_rate
+    axs[1].errorbar(torch.arange(0,train_accs_mean.size(0)), train_accs_mean ,train_accs_std/2, label='train_error_rate', capsize=3)
+    axs[1].errorbar(torch.arange(0,val_accs_mean.size(0)), val_accs_mean ,val_accs_std/2, label='val_error_rate', capsize=3)
 
-    axs[1].set_ylabel('error rate', fontsize=fontsize)
+    axs[1].set_ylabel('Accuracy', fontsize=fontsize)
     axs[1].set_xlabel('epochs', fontsize=fontsize)
     axs[1].set_ylim(0, 0.6)
     axs[1].legend()
