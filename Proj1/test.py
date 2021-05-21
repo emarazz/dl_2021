@@ -61,20 +61,45 @@ from improved_siamese_net import *
 # ========================================================================================
 # # # SiameseNet
 # ========================================================================================
-model = SiameseNet( nb_hidden1=128,
-                    nb_hidden2=512,
-                    nb_hidden3=512,
-                    dropout_prob=0  )
+# model = SiameseNet( nb_hidden1=128,
+#                     nb_hidden2=512,
+#                     nb_hidden3=512,
+#                     dropout_prob=0  )
 
-log2_batch_size = 6
-train_loader, test_loader = get_data(N=1000, batch_size=2**log2_batch_size, shuffle=True)
+# train_loader, test_loader = get_data(N=1000, batch_size=2**log2_batch_size, shuffle=True)
 
-epochs = 15
-eta = 0.003
-train_losses, test_losses, train_error_rates, test_error_rates = run_SiameseNet(hl=128, h2=512, h3=512, do=0, log2_bs=log2_batch_size, eta=eta, epochs=epochs)
+# train_losses, test_losses, train_error_rates, test_error_rates = run_SiameseNet(hl=128, h2=512, h3=512, do=0, log2_bs=log2_batch_size, eta=eta, epochs=epochs)
 
-plot_results(model, hl=128, h2=512, do=0, log2_bs=log2_batch_size, eta=eta,
-            train_losses=train_losses, val_losses=test_losses, train_accs=train_error_rates, val_accs=test_error_rates) 
+epochs = 30
+
+# hl = 128
+# h2 = 512
+# h3 = 512
+# do = 0.125
+# log2_bs = 6
+# eta = 0.003
+
+hl, h2, h3, do, log2_bs, eta = binary_search_SiameseNet(    hidden_layers1 = [128],
+                                                            hidden_layers2 = [256,512],
+                                                            hidden_layers3 = [256,512],
+                                                            dropout_probabilities = [0],
+                                                            log2_batch_sizes = [4,8],
+                                                            etas = [0.001, 0.005],
+                                                            epochs = epochs )
+
+
+model = SiameseNet( nb_hidden1=hl,
+                    nb_hidden2=h2,
+                    nb_hidden3=h3,
+                    dropout_prob=do  )
+
+# PATH ='./SiameseNet_tensors_to_plot.pt'
+# train_losses, test_losses, train_error_rates, test_error_rates = torch.load(PATH)
+train_losses, test_losses, train_error_rates, test_error_rates = run_SiameseNet(hl=hl, h2=h2, h3=h3, do=do, log2_bs=log2_bs, eta=eta, epochs=epochs)
+
+
+plot_results(model, hl=hl, h2=h2, do=do, log2_bs=log2_bs, eta=eta,
+            train_losses=train_losses, val_losses=test_losses, train_accs=train_error_rates, val_accs=test_error_rates,savefig=True) 
 plt.show()
 
 # ========================================================================================

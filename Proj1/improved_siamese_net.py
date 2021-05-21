@@ -9,7 +9,7 @@ import os
 
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
-NUMBER_OF_EVALUATION_RUNS = 2
+NUMBER_OF_EVALUATION_RUNS = 10
 """
 siamese net based on improved AuxNet
 """
@@ -196,40 +196,6 @@ def train_SiameseNet(model, eta, epochs, train_loader, val_loader, optim = 'Adam
 
     return train_losses, val_losses, train_accs, val_accs
 
-# @torch.no_grad()
-# def eval_SiameseNet(model, epochs, val_loader, print_results=True):
-#     model.eval()
-    
-#     val_losses = []
-#     val_acc_rates = []
-    
-#     device = get_device() 
-#     model  = model.to(device)
-#     criterion = nn.CrossEntropyLoss()
-#     criterion = criterion.to(device)
-
-#     for e in range(epochs):
-#         for input_data, target, class_data in iter(val_loader):
-#             output_aux1, output_aux2, output = model(input_data)
-#             # auxiliary losses
-#             loss_aux1 = criterion(output_aux1, class_data[:,0])
-#             loss_aux2 = criterion(output_aux2, class_data[:,1])
-#             # total losses
-#             loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
-
-#         val_losses.append(loss)
-#         val_acc_rates.append(compute_acc_rate(output=output, target=target)) # model.eval() and torch.no_grad() is used while evaluating
-        
-#         if print_results:
-#             if ((e%10) == 0):
-#                 print(get_str_results(epoch=e, val_loss= val_losses[-1], val_acc_rate= val_acc_rates[-1]))#, val_acc_rates[-1]))
-
-#     if print_results:           
-#         print(get_str_results(epoch=e, val_loss= val_losses[-1], val_acc_rate= val_acc_rates[-1]))#, val_acc_rates[-1]))  
-#         print(70*'-')
-
-#     return val_losses, val_acc_rates
-
 
 def compute_center(two_elements_list):
     return (two_elements_list[0]+two_elements_list[1])/2
@@ -290,6 +256,7 @@ def binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, dro
                                     acc_cum += train_accs[-1]
                                     del model
                                 averaged_acc = acc_cum/NUMBER_OF_SEARCH_RUNS
+                                print(averaged_acc , highest_acc)   
                                 if averaged_acc > highest_acc:
                                     highest_acc = highest_acc
                                     used_hl = hl
