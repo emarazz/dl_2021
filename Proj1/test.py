@@ -73,7 +73,7 @@ epochs = 50
 eta = 0.003
 train_losses, test_losses, train_error_rates, test_error_rates = run_SiameseNet(hl=128, h2=512, h3=512, do=0, log2_bs=log2_batch_size, eta=eta, epochs=epochs)
 
-plot_results(model, hl=128, h2=512, do=512, log2_bs=log2_batch_size, eta=eta,
+plot_results(model, hl=128, h2=512, do=0, log2_bs=log2_batch_size, eta=eta,
             train_losses=train_losses, test_losses=test_losses, train_error_rates=train_error_rates, test_error_rates=test_error_rates) 
 plt.show()
 
