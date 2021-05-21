@@ -5,6 +5,7 @@ from torch.nn import functional as F
 from data import *
 from helpers import *
 from time import time
+import os
 
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
@@ -15,6 +16,12 @@ siamese net based on improved AuxNet
 class SiameseNet(nn.Module):
     def __init__(self, nb_hidden1, nb_hidden2, nb_hidden3, dropout_prob=0):
         super().__init__()
+
+        self.nb_hidden1 = nb_hidden1
+        self.nb_hidden2 = nb_hidden2
+        self.nb_hidden3 = nb_hidden3
+        self.dropout_prob = dropout_prob        
+
         self.feat_extractor = nn.Sequential(
             nn.Conv2d(1, 16, kernel_size=3), # 16x12x12    
             nn.ReLU(),
@@ -67,19 +74,138 @@ class SiameseNet(nn.Module):
         
         return x1, x2, y
 
-def train_SiameseNet(model, eta, train_loader, test_loader, eval_mode=False):
-    losses = []
+    def get_str_parameters(self):
+        return '{} - nb_hidden1={}, nb_hidden2={}, nb_hidden3={}, dropout={}'.format(
+                type(self).__name__, self.nb_hidden1, self.nb_hidden2, self.nb_hidden3, self.dropout_prob)
+
+
+class CNN_AUX_WS(nn.Module):
+    name = '3 Layer Convolution, weight sharing with auxiliary Loss'
+    name_prefix = 'CNN+AUX+WS'
+
+    def __init__(self, nb_hidden1, nb_hidden2, nb_hidden3, dropout_prob=0):
+        """
+        In the constructor we construct three nn.Linear instances that we will use
+        in the forward pass.
+        """
+        super(CNN_AUX_WS, self).__init__()
+
+        self.nb_hidden1 = nb_hidden1
+        self.nb_hidden2 = nb_hidden2
+        self.nb_hidden3 = nb_hidden3
+        self.dropout_prob = dropout_prob
+
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3)  # 14 -> 12
+        self.bn1 = nn.BatchNorm2d(num_features=16)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3)  # 12 -> 10
+        self.bn2 = nn.BatchNorm2d(num_features=32)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3)  # 10 -> 8
+        self.bn3 = nn.BatchNorm2d(num_features=64)
+        self.fc1 = nn.Conv2d(64, 32 , kernel_size = 3)
+        self.bn4 = nn.BatchNorm2d(num_features=32)
+        self.fc2 = nn.Conv2d(32,16, kernel_size=3)
+        self.bn5 = nn.BatchNorm2d(num_features=16)
+        self.fc3 = nn.Conv2d(16, 10, kernel_size=4) # Here it ends the number classifier
+
+        self.bn6 = nn.BatchNorm1d(num_features=20)         
+        self.lin1 = nn.Linear(20, 256)
+        self.bn7 = nn.BatchNorm1d(num_features=256)
+        self.lin2 = nn.Linear(256, 256)
+        self.bn8 = nn.BatchNorm1d(num_features=256)
+        self.lin3 = nn.Linear(256, 2)
+
+    def forward(self, x):
+
+        xA = x[:, 0].unsqueeze(1)
+        xB = x[:, 1].unsqueeze(1)
+
+        number0 = F.relu(self.conv1(xA))
+        number0 = F.relu(self.conv2(self.bn1(number0)))
+        number0 = F.relu(self.conv3(self.bn2(number0)))
+        number0 = F.relu(self.fc1(self.bn3(number0)))
+        number0 = F.relu(self.fc2(self.bn4(number0)))
+        number0 = torch.tanh(self.fc3(self.bn5(number0)))
+        number0 = number0.view(-1,10)
+        
+        number1 = F.relu(self.conv1(xB))
+        number1 = F.relu(self.conv2(self.bn1(number1)))
+        number1 = F.relu(self.conv3(self.bn2(number1)))
+        number1 = F.relu(self.fc1(self.bn3(number1)))
+        number1 = F.relu(self.fc2(self.bn4(number1)))
+        number1 = torch.tanh(self.fc3(self.bn5(number1)))
+        number1 = number1.view(-1,10)
+        
+        minus = F.relu(self.lin1(self.bn6(torch.cat((number0, number1), 1))))
+        minus = F.relu(self.lin2(self.bn7(minus)))
+        minus = torch.sigmoid(self.lin3(self.bn8(minus)))
+
+        return number0, number1, minus
+    
+    def get_str_parameters(self):
+        return '{} - nb_hidden1={}, nb_hidden2={}, nb_hidden3={}, dropout={}'.format(
+                type(self).__name__, self.nb_hidden1, self.nb_hidden2, self.nb_hidden3, self.dropout_prob)
+
+
+def train_SiameseNet(model, eta, epochs, train_loader, optim = 'Adam', print_results=True):
+    model.train()
+    
+    train_losses = []
     train_error_rates = []
-    test_error_rates = []
+    
     device = get_device() 
     model  = model.to(device)
     criterion = nn.CrossEntropyLoss()
     criterion = criterion.to(device)
     
-    optimizer = torch.optim.SGD(model.parameters(), lr=eta)
-    epochs = 30   
-    for _ in range(epochs):
+    if optim == "SGD":
+        optimizer = torch.optim.SGD(model.parameters(), lr=eta)
+    if optim == "Adam":
+        optimizer = torch.optim.Adam(model.parameters(), lr=eta, betas=(0.99, 0.999))
+
+    for e in range(epochs):
         for input_data, target, class_data in iter(train_loader):
+            output_aux1, output_aux2, output = model(input_data)
+            # auxiliary losses
+            loss_aux1 = criterion(output_aux1, class_data[:,0])
+            loss_aux2 = criterion(output_aux2, class_data[:,1])
+            # total losses
+            # loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
+            lam = 0.5
+            loss = lam * criterion(output, target) + loss_aux1 + loss_aux2
+            
+            # print(loss.item())
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+        train_losses.append(loss)
+        train_error_rates.append(compute_error_rate(output=output, target=target)) # model.eval() and torch.no_grad() is used while evaluating
+        
+        if print_results:
+            if ((e%10) == 0):
+                print(get_str_results(epoch=e, train_loss= train_losses[-1], train_error_rate= train_error_rates[-1]))#, test_error_rates[-1]))
+
+    if print_results:           
+        print(get_str_results(epoch=e, train_loss= train_losses[-1], train_error_rate= train_error_rates[-1]))#, test_error_rates[-1]))  
+        print(70*'-')
+
+    return train_losses, train_error_rates
+
+@torch.no_grad()
+def eval_SiameseNet(model, epochs, test_loader, print_results=True):
+    model.eval()
+    
+    test_losses = []
+    test_error_rates = []
+    
+    device = get_device() 
+    model  = model.to(device)
+    criterion = nn.CrossEntropyLoss()
+    criterion = criterion.to(device)
+
+    for e in range(epochs):
+        for input_data, target, class_data in iter(test_loader):
             output_aux1, output_aux2, output = model(input_data)
             # auxiliary losses
             loss_aux1 = criterion(output_aux1, class_data[:,0])
@@ -87,28 +213,19 @@ def train_SiameseNet(model, eta, train_loader, test_loader, eval_mode=False):
             # total losses
             loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
 
-            optimizer.zero_grad()
-            loss.backward()
-            optimizer.step()
+        test_losses.append(loss)
+        test_error_rates.append(compute_error_rate(output=output, target=target)) # model.eval() and torch.no_grad() is used while evaluating
+        
+        if print_results:
+            if ((e%10) == 0):
+                print(get_str_results(epoch=e, test_loss= test_losses[-1], test_error_rate= test_error_rates[-1]))#, test_error_rates[-1]))
 
-        losses.append(loss)
-        train_error_rates.append(compute_error_rate_SiameseNet(model, train_loader))
-        test_error_rates.append(compute_error_rate_SiameseNet(model, test_loader))
+    if print_results:           
+        print(get_str_results(epoch=e, test_loss= test_losses[-1], test_error_rate= test_error_rates[-1]))#, test_error_rates[-1]))  
+        print(70*'-')
 
-    return losses, train_error_rates, test_error_rates
+    return test_losses, test_error_rates
 
-def compute_error_rate_SiameseNet(model, data_loader):
-    nb_errors = 0
-    for input_data, target, _ in iter(data_loader):
-        _, _, output = model(input_data)
-        for i, out in enumerate(output):
-            pred_target = out.max(0)[1].item()
-            if (target[i]) != pred_target:
-                nb_errors += 1
-
-    error_rate = nb_errors/len(data_loader.dataset)
-
-    return error_rate
 
 def compute_center(two_elements_list):
     return (two_elements_list[0]+two_elements_list[1])/2
@@ -119,44 +236,55 @@ def binary_step(two_elements_list, left):
     else:
         return [compute_center(two_elements_list), two_elements_list[1]]
 
-def binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, batch_sizes, etas, dropout_probabilities):
+def binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, dropout_probabilities, log2_batch_sizes, etas, epochs, cls=SiameseNet):
     lowest_error_rate = float('inf')
     
     used_hl = -1
     used_h2 = -1
     used_h3 = -1
-    used_bs = -1
+    used_log2_bs = -1
     used_eta = -1
     used_do = -1
-    
+
     filename = "SiameseNet_binarysearch.txt"
-    f = open(filename, "w")
+    if os.path.exists(filename):
+        os.remove(filename)
+
     for bsi in range(BINARY_SEARCH_ITERATIONS):
-        assert(len(hidden_layers1) == 2)
-        assert(len(hidden_layers2) == 2)
-        assert(len(hidden_layers3) == 2)
-        assert(len(batch_sizes) == 2)
-        assert(len(etas) == 2)
-        assert(len(dropout_probabilities) == 2)
+        # assert(len(hidden_layers1) == 2)
+        # assert(len(hidden_layers2) == 2)
+        # assert(len(hidden_layers3) == 2)
+        # assert(len(log2_batch_sizes) == 2)
+        # assert(len(etas) == 2)
+        # assert(len(dropout_probabilities) == 2)
+        
+        len_hl = len(hidden_layers1) == 2
+        len_h2 = len(hidden_layers2) == 2
+        len_h3 = len(hidden_layers2) == 2
+        len_log2_bs = len(log2_batch_sizes) == 2
+        len_etas = len(etas) == 2
+        len_do = len(dropout_probabilities) == 2
 
         hidden_layers1 = [int(hl) for hl in hidden_layers1]
         hidden_layers2 = [int(h2) for h2 in hidden_layers2]
         hidden_layers3 = [int(h3) for h3 in hidden_layers3]    
-        batch_sizes = [int(bs) for bs in batch_sizes]
+        log2_batch_sizes = [int(log2_bs) for log2_bs in log2_batch_sizes]
 
         for hl in hidden_layers1:
             for h2 in hidden_layers2:
                 for h3 in hidden_layers3:
-                    for bs in batch_sizes:
+                    for log2_bs in log2_batch_sizes:
                         for eta in etas:
                             for do in dropout_probabilities:
                                 last_time = time()
                                 error_rate = 0
                                 for r in range(NUMBER_OF_SEARCH_RUNS):
-                                    model = SiameseNet(hl, h2, h3, do)
-                                    train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
-                                    _, _, er = train_SiameseNet(model, eta, train_loader, test_loader)
-                                    error_rate += er[-1]
+                                    model = cls(hl, h2, h3, do) # By default cls = SiamesetNet
+                                    train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
+                                    train_loss, train_er = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader)
+                                    test_loss, test_er = eval_SiameseNet(model=model, epochs=epochs, test_loader=test_loader)
+                                    print(get_str_results(epoch=epochs-1, train_loss=train_loss[-1], test_loss=test_loss[-1], train_error_rate=train_er[-1], test_error_rate=test_er[-1]))
+                                    error_rate += train_er[-1]
                                     del model
                                 averaged_error_rate = error_rate/NUMBER_OF_SEARCH_RUNS
                                 if averaged_error_rate < lowest_error_rate:
@@ -164,118 +292,147 @@ def binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, bat
                                     used_hl = hl
                                     used_h2 = h2
                                     used_h3 = h3
-                                    used_bs = bs
+                                    used_log2_bs = log2_bs
                                     used_eta = eta
                                     used_do = do
+                                
+                                print('-'*70)
+                                print("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec".format(bsi, hl, h2, do, log2_bs, eta, averaged_error_rate, time()-last_time))
+                                print('='*70 +'\n' + '='*70)
+                                with open(filename, "a") as f:
+                                    f.write("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec\n".format(bsi, hl, h2, do, log2_bs, eta, averaged_error_rate, time()-last_time))
+        
+        if not (len_hl or len_h2 or len_log2_bs or len_etas or len_do): # if binary search is not possible -> break the loop
+            break
 
-                                print("bsi: {:1.0f}, hl: {:4.0f}, h2: {:4.0f}, h3: {:4.0f}, bs: 2**{:1.0f}, eta: {:.5f}, do: {:.5f} -> er: {:.3f} in about {:.2f}sec".format(bsi, hl, h2, h3, bs, eta, do, averaged_error_rate, time()-last_time))
-                                f.write("bsi: {:1.0f}, hl: {:4.0f}, h2: {:4.0f}, h3: {:4.0f}, bs: 2**{:1.0f}, eta: {:.5f}, do: {:.5f} -> er: {:.3f} in about {:.2f}sec\n".format(bsi, hl, h2, h3, bs, eta, do, averaged_error_rate, time()-last_time))
-        if used_hl == hidden_layers1[0]:
-            hidden_layers1 = binary_step(hidden_layers1, True)
-        else:
-            hidden_layers1 = binary_step(hidden_layers1, False)
+        if len_hl:
+            if used_hl == hidden_layers1[0]:
+                hidden_layers1 = binary_step(hidden_layers1, True)
+            else:
+                hidden_layers1 = binary_step(hidden_layers1, False)
+        
+        if  len_h2:
+            if used_h2 == hidden_layers2[0]:
+                hidden_layers2 = binary_step(hidden_layers2, True)
+            else:
+                hidden_layers2 = binary_step(hidden_layers2, False)
+        
+        if  len_h3:
+            if used_h3 == hidden_layers3[0]:
+                hidden_layers3 = binary_step(hidden_layers3, True)
+            else:
+                hidden_layers3 = binary_step(hidden_layers3, False)
+        
+        if len_log2_bs:
+            if used_log2_bs == log2_batch_sizes[0]:
+                log2_batch_sizes = binary_step(log2_batch_sizes, True)
+            else:
+                log2_batch_sizes = binary_step(log2_batch_sizes, False)
 
-        if used_h2 == hidden_layers2[0]:
-            hidden_layers2 = binary_step(hidden_layers2, True)
-        else:
-            hidden_layers2 = binary_step(hidden_layers2, False)
+        if len_etas:
+            if used_eta == etas[0]:
+                etas = binary_step(etas, True)
+            else:
+                etas = binary_step(etas, False)
 
-        if used_h3 == hidden_layers3[0]:
-            hidden_layers3 = binary_step(hidden_layers3, True)
-        else:
-            hidden_layers3 = binary_step(hidden_layers3, False)  
+        if len_do:
+            if used_do == dropout_probabilities[0]:
+                dropout_probabilities = binary_step(dropout_probabilities, True)
+            else:
+                dropout_probabilities = binary_step(dropout_probabilities, False)
 
-        if used_bs == batch_sizes[0]:
-            batch_sizes = binary_step(batch_sizes, True)
-        else:
-            batch_sizes = binary_step(batch_sizes, False)
-
-        if used_eta == etas[0]:
-            etas = binary_step(etas, True)
-        else:
-            etas = binary_step(etas, False)
-
-        if used_do == dropout_probabilities[0]:
-            dropout_probabilities = binary_step(dropout_probabilities, True)
-        else:
-            dropout_probabilities = binary_step(dropout_probabilities, False)
-    f.close()
-    return used_hl, used_h2, used_h3, used_bs, used_eta, used_do 
+    return used_hl, used_h2, used_h3, used_do, used_log2_bs, used_eta 
 
 
-def eval_SiameseNet():
-    hidden_layers1 = [128, 512]
-    hidden_layers2 = [64, 512]
-    hidden_layers3 = [10, 512]
-    batch_sizes = [6, 7]
-    etas = [1e-3, 1e-1]
-    dropout_probabilities = [0, 0.5]
-    epochs = 30
-
-    # hl, h2, h3, bs, eta, do = binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, batch_sizes, etas, dropout_probabilities)
-    hl = 128
-    h2 = 512
-    h3 = 512
-    bs = 6
-    eta = 0.05
-    do = 0
-
+def run_SiameseNet(hl, h2, h3, do, log2_bs, eta, epochs, save_tensors=True, cls=SiameseNet):
+    
     filename = "SiameseNet_parameters.txt"
-    f = open(filename, "w")
-    f.write("hl: {}, h2: {}, h3: {}, bs: 2**{}, eta: {}, do: {}\n".format(hl, h2, h3, bs, eta, do))
-    f.close()
-
+    
+    with open(filename, "w") as f:
+        f.write("hl: {}, h2: {}, h3: {}, do: {}, bs: 2**{}, eta: {}\n".format(hl, h2, h3, do, log2_bs, eta))
+    
     filename = "SiameseNet_scores.txt"
 
-    f = open(filename, "w")
-    f.write("{} {}\n".format(epochs, NUMBER_OF_EVALUATION_RUNS))
+    with open(filename, "w") as f:
+        f.write("{} {}\n".format(epochs, NUMBER_OF_EVALUATION_RUNS))
 
-    averaged_losses = 0
+    averaged_train_losses = 0
+    averaged_test_losses = 0
     averaged_train_error_rate = 0
     averaged_test_error_rate = 0
 
+    arr_train_losses = []
+    arr_test_losses = []
+    arr_train_error_rates = []
+    arr_test_error_rates = []
+
     for i in range(NUMBER_OF_EVALUATION_RUNS):
-        model = SiameseNet(hl, h2, h3, do)
-        train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
-        losses, train_error_rates, test_error_rates = train_SiameseNet(model, eta, train_loader, test_loader)
+        model = cls(hl, h2, h3, do)
 
-        f.write(" ".join([str(l.item()) for l in losses])+"\n")
-        f.write(" ".join([str(er) for er in train_error_rates])+"\n")
-        f.write(" ".join([str(er) for er in test_error_rates])+"\n")
+        print('='*70)
+        print('run: {:2d} - '.format(i) + model.get_str_parameters() + ', batch_size=2**{}, eta={:.4E}'.format(log2_bs,eta))
+        print('-'*70)
 
-        averaged_losses += losses[-1]
+        train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
+        train_losses, train_error_rates = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader)
+        test_losses, test_error_rates = eval_SiameseNet(model=model, epochs=epochs, test_loader=test_loader)
+        print(get_str_results(epoch=epochs-1, train_loss=train_losses[-1], test_loss=test_losses[-1], train_error_rate=train_error_rates[-1], test_error_rate=test_error_rates[-1]))
+
+        with open(filename, "a") as f:
+            f.write(" ".join([str(l.item()) for l in train_losses])+"\n")
+            f.write(" ".join([str(l.item()) for l in test_losses])+"\n")
+            f.write(" ".join([str(er) for er in train_error_rates])+"\n")
+            f.write(" ".join([str(er) for er in test_error_rates])+"\n")
+
+        averaged_train_losses += train_losses[-1]
+        averaged_test_losses += test_losses[-1]
         averaged_train_error_rate += train_error_rates[-1]
         averaged_test_error_rate += test_error_rates[-1]
 
-        del model
-
-    averaged_losses /= NUMBER_OF_EVALUATION_RUNS
-    averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
-    averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
-
-    print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
-
-    f.write("loss: {}, train error rate: {}, test error rate: {}\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
-    f.close()
-
-def run_SiameseNet(hl, h2, h3, bs, eta, do):
-    averaged_losses = 0
-    averaged_train_error_rate = 0
-    averaged_test_error_rate = 0
-
-    for i in range(NUMBER_OF_EVALUATION_RUNS):
-        model = SiameseNet(hl, h2, h3, do)
-        train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
-        losses, train_error_rates, test_error_rates = train_SiameseNet(model, eta, train_loader, test_loader)
-
-        averaged_losses += losses[-1]
-        averaged_train_error_rate += train_error_rates[-1]
-        averaged_test_error_rate += test_error_rates[-1]
+        arr_train_losses.append(train_losses)
+        arr_test_losses.append(test_losses)
+        arr_train_error_rates.append(train_error_rates)
+        arr_test_error_rates.append(test_error_rates)
 
         del model
 
-    averaged_losses /= NUMBER_OF_EVALUATION_RUNS
+    averaged_train_losses /= NUMBER_OF_EVALUATION_RUNS
+    averaged_test_losses /= NUMBER_OF_EVALUATION_RUNS
     averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
     averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
 
-    print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))
+    with open(filename, "a") as f:
+        f.write("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_error: {:.4f}, avg_test_error: {:.4f}\n".format(averaged_train_losses, averaged_test_losses, averaged_train_error_rate, averaged_test_error_rate))
+        print("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_error: {:.4f}, avg_test_error: {:.4f} saved to file: {}\n".format(averaged_train_losses, averaged_test_losses, averaged_train_error_rate, averaged_test_error_rate, filename))
+
+    arr_train_losses = torch.tensor(arr_train_losses)
+    arr_test_losses = torch.tensor(arr_test_losses)
+    arr_train_error_rates = torch.tensor(arr_train_error_rates)
+    arr_test_error_rates = torch.tensor(arr_test_error_rates)    
+
+    if save_tensors:
+        torch.save([arr_train_losses, arr_test_losses, arr_train_error_rates, arr_test_error_rates], 'AuxNet_tensors_to_plot.pt'.format())
+
+    return arr_train_losses, arr_test_losses, arr_train_error_rates, arr_test_error_rates
+
+# def run_SiameseNet(hl, h2, h3, bs, eta, do):
+#     averaged_losses = 0
+#     averaged_train_error_rate = 0
+#     averaged_test_error_rate = 0
+
+#     for i in range(NUMBER_OF_EVALUATION_RUNS):
+#         model = SiameseNet(hl, h2, h3, do)
+#         train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
+#         losses, train_error_rates, test_error_rates = train_SiameseNet(model, eta, train_loader, test_loader)
+
+#         averaged_losses += losses[-1]
+#         averaged_train_error_rate += train_error_rates[-1]
+#         averaged_test_error_rate += test_error_rates[-1]
+
+#         del model
+
+#     averaged_losses /= NUMBER_OF_EVALUATION_RUNS
+#     averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
+#     averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
+
+#     print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_error_rate, averaged_test_error_rate))

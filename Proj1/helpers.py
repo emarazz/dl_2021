@@ -20,9 +20,11 @@ import datetime as datetime
 
 #     return error_rate
 
+@torch.no_grad()
 def compute_error_rate(output, target):
     return 1/output.size(0) * (torch.max(output, 1)[1] != target).long().sum()
 
+@torch.no_grad()
 def compute_acc(output, target):
     return 1/output.size(0) * (torch.max(output, 1)[1] == target).long().sum()
 
@@ -61,7 +63,7 @@ def get_str_results(epoch=None, train_loss=None, test_loss=None, train_error_rat
     
     return to_print
 
-def plot_results(hl, h2, do, log2_bs, eta ,train_losses, test_losses, train_error_rates, test_error_rates, savefig=False):
+def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, test_losses, train_error_rates, test_error_rates, savefig=False):
     
     # Get the means and std
     train_losses_mean = train_losses.mean(axis=0)
@@ -80,7 +82,7 @@ def plot_results(hl, h2, do, log2_bs, eta ,train_losses, test_losses, train_erro
     
     # write the title
     # fig.suptitle(model.get_str_parameters(), fontsize=fontsize+1)
-    fig.suptitle("BaseNet \n hl: {}, h2: {}, do: {:.3f}, bs: {}, eta: {:.4E}".format(hl, h2, do, 2**log2_bs, eta), fontsize=fontsize+1)
+    fig.suptitle("{} \n hl: {}, h2: {}, do: {:.3f}, bs: {}, eta: {:.4E}".format(type(model).__name__, hl, h2, do, 2**log2_bs, eta), fontsize=fontsize+1)
 
     # plot the train loss
     axs[0].errorbar(torch.arange(0,train_losses_mean.size(0)), train_losses_mean, train_losses_std/2, label='train_loss', capsize=3)
@@ -106,7 +108,7 @@ def plot_results(hl, h2, do, log2_bs, eta ,train_losses, test_losses, train_erro
     
     if savefig:
         date = datetime.now()
-        plt.savefig('./plots/{}_{:02d}_{:02d}_{}_{:02d}_{:02d}.png'.format('BaseNet',
+        plt.savefig('./plots/{}_{:02d}_{:02d}_{}_{:02d}_{:02d}.png'.format(type(model).__name__,
                                     date.day,
                                     date.month,
                                     date.year,

@@ -9,7 +9,7 @@ import os
 
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
-NUMBER_OF_EVALUATION_RUNS = 1
+NUMBER_OF_EVALUATION_RUNS = 2
 """
 optimal parameters: 
     nb_hidden1 = 512
@@ -45,7 +45,7 @@ class BaseNet(nn.Module):
         self.batchNorm4 = nn.BatchNorm2d(32)
         self.batchNorm5 = nn.BatchNorm2d(64)
 
-        self.relu = nn.LeakyReLU(0.1)
+        self.relu = nn.Sigmoid()
 
     def forward(self, x): 
         x = self.relu(self.batchNorm4(self.conv1(x)))           # 32x10x10
@@ -105,18 +105,17 @@ def train_BaseNet(model, eta, epochs, train_loader, optim = 'SGD', print_results
                 print(get_str_results(epoch=e, train_loss= train_losses[-1], train_error_rate= train_error_rates[-1]))#, test_error_rates[-1]))
 
     if print_results:           
-        print(get_str_results(epoch=e-1, train_loss= train_losses[-1], train_error_rate= train_error_rates[-1]))#, test_error_rates[-1]))  
+        print(get_str_results(epoch=e, train_loss= train_losses[-1], train_error_rate= train_error_rates[-1]))#, test_error_rates[-1]))  
         print(70*'-')
 
     return train_losses, train_error_rates#, test_error_rates
 
 @torch.no_grad()
 def eval_BaseNet(model, epochs, test_loader, print_results=True):
-    model.eval() # set eval mode for BatchNorm and Dropout
+    # model.eval() # set eval mode for BatchNorm and Dropout
 
     test_losses = []
     test_error_rates = []
-    epochs = 30
 
     device = get_device() 
     model  = model.to(device)
@@ -124,7 +123,6 @@ def eval_BaseNet(model, epochs, test_loader, print_results=True):
     criterion = criterion.to(device) 
         
     for e in range(epochs):
-        model.train() # set training mode for BatchNorm and Dropout
         for input_data, target, _ in iter(test_loader):
             output = model(input_data)
             loss = criterion(output, target)
@@ -134,10 +132,10 @@ def eval_BaseNet(model, epochs, test_loader, print_results=True):
         
         if print_results:
             if ((e%10) == 0):
-                print(get_str_results(epoch=e, test_loss= test_losses[-1], test_error_rate= test_error_rates[-1]))
+                print(get_str_results(epoch=e, test_loss=test_losses[-1], test_error_rate=test_error_rates[-1]))
                     
     if print_results:
-        print(get_str_results(epoch=e, test_loss= test_losses[-1], test_error_rate= test_error_rates[-1])) 
+        print(get_str_results(epoch=e, test_loss=test_losses[-1], test_error_rate=test_error_rates[-1])) 
         print(70*'-')
 
     return test_losses, test_error_rates
@@ -195,7 +193,7 @@ def binary_search_BaseNet(hidden_layers1, hidden_layers2, dropout_probabilities,
                                 train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
                                 train_loss, train_er = train_BaseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader)
                                 test_loss, test_er = eval_BaseNet(model=model, epochs=epochs, test_loader=test_loader)
-                                print(get_str_results(epoch=epochs, train_loss=train_loss[-1], test_loss=test_loss[-1], train_error_rate=train_er[-1], test_error_rate=test_er[-1]))
+                                print(get_str_results(epoch=epochs-1, train_loss=train_loss[-1], test_loss=test_loss[-1], train_error_rate=train_er[-1], test_error_rate=test_er[-1]))
                                 error_rate += train_er[-1]
                                 del model
                             averaged_error_rate = error_rate/NUMBER_OF_SEARCH_RUNS
@@ -246,7 +244,7 @@ def binary_search_BaseNet(hidden_layers1, hidden_layers2, dropout_probabilities,
             else:
                 dropout_probabilities = binary_step(dropout_probabilities, False)
 
-    return used_hl, used_h2, used_do, used_log2_bs, used_eta, 
+    return used_hl, used_h2, used_do, used_log2_bs, used_eta 
 
 
 def run_BaseNet(hl, h2, do, log2_bs, eta, epochs, save_tensors=True):
@@ -259,7 +257,7 @@ def run_BaseNet(hl, h2, do, log2_bs, eta, epochs, save_tensors=True):
     filename = "./BaseNet_scores.txt"
 
     with open(filename, "w") as f:
-        f.write("{} {}\n".format(30, NUMBER_OF_EVALUATION_RUNS))
+        f.write("{} {}\n".format(epochs, NUMBER_OF_EVALUATION_RUNS))
 
     averaged_train_losses = 0
     averaged_test_losses = 0
@@ -283,7 +281,7 @@ def run_BaseNet(hl, h2, do, log2_bs, eta, epochs, save_tensors=True):
 
         train_losses, train_error_rates = train_BaseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader)
         test_losses, test_error_rates = eval_BaseNet(model=model, epochs=epochs, test_loader=test_loader)
-        print(get_str_results(epoch=epochs, train_loss=train_losses[-1], test_loss=test_losses[-1], train_error_rate=train_error_rates[-1], test_error_rate=test_error_rates[-1]))
+        print(get_str_results(epoch=epochs-1, train_loss=train_losses[-1], test_loss=test_losses[-1], train_error_rate=train_error_rates[-1], test_error_rate=test_error_rates[-1]))
 
         with open(filename, "a") as f:
             f.write(" ".join([str(l.item()) for l in train_losses])+"\n")
@@ -304,7 +302,7 @@ def run_BaseNet(hl, h2, do, log2_bs, eta, epochs, save_tensors=True):
         del model
 
     averaged_train_losses /= NUMBER_OF_EVALUATION_RUNS
-    averaged_train_losses /= NUMBER_OF_EVALUATION_RUNS
+    averaged_test_losses /= NUMBER_OF_EVALUATION_RUNS
     averaged_train_error_rate /= NUMBER_OF_EVALUATION_RUNS
     averaged_test_error_rate /= NUMBER_OF_EVALUATION_RUNS
 
