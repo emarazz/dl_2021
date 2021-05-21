@@ -299,9 +299,10 @@ def binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, dro
                                     used_eta = eta
                                     used_do = do
                                 
-                                print('-'*70)
+                                # print('-'*70)
                                 print("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec".format(bsi, hl, h2, do, log2_bs, eta, averaged_acc, time()-last_time))
-                                print('='*70 +'\n' + '='*70)
+                                print('='*70)
+                                # print('='*70 +'\n' + '='*70)
                                 with open(filename, "a") as f:
                                     f.write("bsi: {:2d}, hl: {}, h2: {}, do: {:.3f}, bs: 2**{}, eta: {:.4E} -> er: {:.4f} in about {:.2f}sec\n".format(bsi, hl, h2, do, log2_bs, eta, averaged_acc, time()-last_time))
         
@@ -396,7 +397,7 @@ def run_SiameseNet(hl, h2, h3, do, log2_bs, eta, epochs, save_tensors=True, cls=
         arr_train_accs.append(train_accs)
         arr_val_accs.append(val_accs)
 
-        del model
+        # del model
 
     averaged_train_loss /= NUMBER_OF_EVALUATION_RUNS
     averaged_val_loss /= NUMBER_OF_EVALUATION_RUNS
