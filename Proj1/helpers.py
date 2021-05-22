@@ -13,12 +13,20 @@ def compute_acc(model, data_loader):
     # print(model.training)
 
     nb_errors = 0
-    for input_data, target, _ in iter(data_loader):
-        _,_,output = model(input_data)
-        for i, out in enumerate(output):
-            pred_target = out.max(0)[1].item()
-            if (target[i]) != pred_target:
-                nb_errors += 1
+    if type(model).__name__ == 'BaseNetCNN' or type(model).__name__ == 'BaseNetMLP' :
+        for input_data, target, _ in iter(data_loader):
+            output = model(input_data)
+            for i, out in enumerate(output):
+                pred_target = out.max(0)[1].item()
+                if (target[i]) != pred_target:
+                    nb_errors += 1            
+    else:    
+        for input_data, target, _ in iter(data_loader):
+            _,_,output = model(input_data)
+            for i, out in enumerate(output):
+                pred_target = out.max(0)[1].item()
+                if (target[i]) != pred_target:
+                    nb_errors += 1
 
     error_rate = nb_errors/len(data_loader.dataset)
     # print(len(data_loader.dataset))
@@ -31,15 +39,21 @@ def eval_model(model , data_loader):
     criterion = nn.CrossEntropyLoss(reduction='none')
 
     losses = []
-    for input_data, target, class_data in iter(data_loader):
-        output_aux1, output_aux2, output = model(input_data)
-        loss_aux1 = criterion(output_aux1, class_data[:,0])
-        loss_aux2 = criterion(output_aux2, class_data[:,1])
-        # total losses
-        # loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
-        lam = 0.5
-        loss = lam * criterion(output, target) + loss_aux1 + loss_aux2
-        losses.append(loss)
+    if type(model).__name__ == 'BaseNetCNN' or type(model).__name__ == 'BaseNetMLP' :
+        for input_data, target, _ in iter(data_loader):
+            output = model(input_data)
+            loss = criterion(output, target)
+            losses.append(loss)       
+    else: 
+        for input_data, target, class_data in iter(data_loader):
+            output_aux1, output_aux2, output = model(input_data)
+            loss_aux1 = criterion(output_aux1, class_data[:,0])
+            loss_aux2 = criterion(output_aux2, class_data[:,1])
+            # total losses
+            # loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
+            lam = 0.5
+            loss = lam * criterion(output, target) + loss_aux1 + loss_aux2
+            losses.append(loss)
     
     return torch.cat(losses).mean()
 
@@ -102,7 +116,7 @@ def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, test_losses, tra
     test_accs_mean = test_accs.mean(axis=0)
     test_accs_std = test_accs.std(axis=0)
 
-    print('train acc - mean: {:.3f} std: {:.3f} || test acc - mean: {:.3f} std: {:.3f}'.format(train_accs_mean[-1],train_accs_std[-1],test_accs_mean[-1],test_accs_std[-1]))
+    print('train acc - mean: {:.4f} std: {:.4f} || test acc - mean: {:.4f} std: {:.4f}'.format(train_accs_mean[-1],train_accs_std[-1],test_accs_mean[-1],test_accs_std[-1]))
 
     fontsize = 10
     fig, axs = plt.subplots(2, 1, sharex=True)
