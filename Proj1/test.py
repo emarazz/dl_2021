@@ -21,25 +21,63 @@ from improved_siamese_net import *
 ####
 ####
 
-# # ========================================================================================
-# # # BaseseNet
-# # ========================================================================================
-# model = AuxNet( nb_hidden1=128,
-#                     nb_hidden2=512,
-#                     dropout_prob=0  )
+# ========================================================================================
+# # BaseNetCNN
+# ========================================================================================
 
-# log2_batch_size = 7
-# train_loader, test_loader = get_data(N=1000, batch_size=2**log2_batch_size, shuffle=True)
+# hl, h2, do, log2_bs, eta = binary_search_BaseNet(    hidden_layers1 = [512],
+#                                                         hidden_layers2 = [512],
+#                                                         dropout_probabilities = [0],
+#                                                         log2_batch_sizes = [6],
+#                                                         etas = [0.001, 0.1],
+#                                                         epochs = epochs )
+# # hl = 512
+# # h2 = 512
+# # do =  0.125
+# # log2_bs = 6
+# # eta = 0.075
+# model = BaseNetCNN( nb_hidden1=hl,
+#                     nb_hidden2=h2,
+#                     dropout_prob=do)
 
-# epochs = 50
-# eta = 0.003
-# train_losses, test_losses, train_error_rates, test_error_rates = run_AuxNet(hl=128, h2=512, do=0, log2_bs=log2_batch_size, eta=eta, epochs=epochs)
+# train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
 
-# plot_results(model, hl=128, h2=512, do=512, log2_bs=log2_batch_size, eta=eta,
-#             train_losses=train_losses, test_losses=test_losses, train_error_rates=train_error_rates, test_error_rates=test_error_rates) 
+# train_losses, test_losses, train_error_rates, test_error_rates = run_BaseNet(hl, h2, do, log2_bs, eta, epochs)
+
+# plot_results(model, hl, h2, do, log2_bs, eta,
+#             train_losses=train_losses, test_losses=test_losses, train_accs=train_error_rates, test_accs=test_error_rates, savefig=True) 
 # plt.show()
 
-# # ========================================================================================
+
+# ========================================================================================
+# # BaseNetMLP
+# ========================================================================================
+
+# hl, h2, do, log2_bs, eta = binary_search_BaseNet(    hidden_layers1 = [64, 512],
+#                                                         hidden_layers2 = [64, 512],
+#                                                         dropout_probabilities = [0],
+#                                                         log2_batch_sizes = [6, 7],
+#                                                         etas = [0.001, 0.1],
+#                                                         epochs = epochs,
+#                                                         cls=BaseNetCNN)
+epochs = 15
+hl = 64
+h2 = 64
+do =  0
+log2_bs = 6
+eta = 0.1
+model = BaseNetCNN( nb_hidden1=hl,
+                    nb_hidden2=h2,
+                    dropout_prob=do)
+
+train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
+
+train_losses, test_losses, train_error_rates, test_error_rates = run_BaseNet(hl, h2, do, log2_bs, eta, epochs,  cls=BaseNetCNN)
+
+plot_results(model, hl, h2, do, log2_bs, eta,
+            train_losses=train_losses, test_losses=test_losses, train_accs=train_error_rates, test_accs=test_error_rates, savefig=True) 
+plt.show()
+# # # ========================================================================================
 # # # AuxseNet
 # # ========================================================================================
 # model = AuxNet( nb_hidden1=128,
@@ -70,7 +108,7 @@ from improved_siamese_net import *
 
 # train_losses, test_losses, train_error_rates, test_error_rates = run_SiameseNet(hl=128, h2=512, h3=512, do=0, log2_bs=log2_batch_size, eta=eta, epochs=epochs)
 
-epochs = 30
+
 
 # hl = 128
 # h2 = 512
@@ -79,28 +117,28 @@ epochs = 30
 # log2_bs = 6
 # eta = 0.003
 
-hl, h2, h3, do, log2_bs, eta = binary_search_SiameseNet(    hidden_layers1 = [128],
-                                                            hidden_layers2 = [512],
-                                                            hidden_layers3 = [512],
-                                                            dropout_probabilities = [0],
-                                                            log2_batch_sizes = [6],
-                                                            etas = [0.001],
-                                                            epochs = epochs )
+# hl, h2, h3, do, log2_bs, eta = binary_search_SiameseNet(    hidden_layers1 = [128,512],
+#                                                             hidden_layers2 = [64,512],
+#                                                             hidden_layers3 = [64,512],
+#                                                             dropout_probabilities = [0, 0.5],
+#                                                             log2_batch_sizes = [6],
+#                                                             etas = [0.001, 0.1],
+#                                                             epochs = epochs )
 
 
-model = SiameseNet( nb_hidden1=hl,
-                    nb_hidden2=h2,
-                    nb_hidden3=h3,
-                    dropout_prob=do  )
+# model = SiameseNet( nb_hidden1=hl,
+#                     nb_hidden2=h2,
+#                     nb_hidden3=h3,
+#                     dropout_prob=do  )
 
 # PATH ='./SiameseNet_tensors_to_plot.pt'
 # train_losses, test_losses, train_error_rates, test_error_rates = torch.load(PATH)
-train_losses, test_losses, train_error_rates, test_error_rates = run_SiameseNet(hl=hl, h2=h2, h3=h3, do=do, log2_bs=log2_bs, eta=eta, epochs=epochs)
+# train_losses, test_losses, train_error_rates, test_error_rates = run_SiameseNet(hl=hl, h2=h2, h3=h3, do=do, log2_bs=log2_bs, eta=eta, epochs=epochs)
 
 
-plot_results(model, hl=hl, h2=h2, do=do, log2_bs=log2_bs, eta=eta,
-            train_losses=train_losses, test_losses=test_losses, train_accs=train_error_rates, test_accs=test_error_rates,savefig=True) 
-plt.show()
+# plot_results(model, hl=hl, h2=h2, do=do, log2_bs=log2_bs, eta=eta,
+#             train_losses=train_losses, test_losses=test_losses, train_accs=train_error_rates, test_accs=test_error_rates,savefig=True) 
+# plt.show()
 
 # ========================================================================================
 # # # CNN_AUX_WS

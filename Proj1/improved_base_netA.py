@@ -9,15 +9,8 @@ import os
 
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
-NUMBER_OF_EVALUATION_RUNS = 2
-"""
-optimal parameters: 
-    nb_hidden1 = 512
-    nb_hidden2 = 512
-    do = 0.125
-    eta = 0.075
-    bs = 6
-"""
+NUMBER_OF_EVALUATION_RUNS = 15
+
 class BaseNetCNN(nn.Module):
     def __init__(self, nb_hidden1, nb_hidden2, dropout_prob=0):
         super().__init__()
@@ -28,41 +21,80 @@ class BaseNetCNN(nn.Module):
         
         # fully convoluted
         self.conv1 = nn.Conv2d( 2, 32, kernel_size=5) 
+        self.batchNorm1 = nn.BatchNorm2d(32)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=5) 
+        self.batchNorm2 = nn.BatchNorm2d(64)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3) 
+        self.batchNorm3 = nn.BatchNorm2d(64)
         
         # fully connected 
         self.fc1 = nn.Linear(256, self.nb_hidden1)
+        self.batchNorm4 = nn.BatchNorm1d(self.nb_hidden1)
         self.fc2 = nn.Linear(self.nb_hidden1, self.nb_hidden2)
+        self.batchNorm5 = nn.BatchNorm1d(self.nb_hidden2)
         self.fc3 = nn.Linear(self.nb_hidden2, 2)
-        
+
         self.max_pool = nn.MaxPool2d(kernel_size = 2)
         self.dropout = nn.Dropout(self.dropout_prob)
         # batch norms
-        self.batchNorm1 = nn.BatchNorm2d(64)
-        self.batchNorm2 = nn.BatchNorm1d(self.nb_hidden1)
-        self.batchNorm3 = nn.BatchNorm1d(self.nb_hidden2)
-        self.batchNorm4 = nn.BatchNorm2d(32)
-        self.batchNorm5 = nn.BatchNorm2d(64)
 
-        self.relu = nn.Sigmoid()
+        self.relu = nn.ReLU()
 
     def forward(self, x): 
-        x = self.relu(self.batchNorm4(self.conv1(x)))           # 32x10x10
-        x = self.relu(self.batchNorm5(self.conv2(x)))           # 64x6x6
-        x = self.conv3(x)       # 64x4x4
-        x = self.batchNorm1(x)  # 64x4x4
-        x = self.relu(x)           # 64x4x4
-        x = self.max_pool(x)    # 64x2x2
-        x = self.fc1(x.view(-1, 256)) # nb_hidden1x1
-        x = self.batchNorm2(x)  # nb_hidden1x1
-        x = self.relu(x)           # nb_hidden1x1
-        x = self.dropout(x)     # nb_hidden1x1
-        x = self.fc2(x)         # nb_hidden2x1
-        x = self.batchNorm3(x)  # nb_hidden2x1
-        x = self.relu(x)           # nb_hidden2x1
-        x = self.dropout(x)     # nb_hidden2x1
-        x = self.fc3(x)         # 2x1
+        x = self.conv1(x)
+        x = self.batchNorm1(x)
+        x = self.relu(x)
+        x = self.conv2(x)
+        x = self.batchNorm2(x)
+        x = self.relu(x)
+        x = self.conv3(x)                                       # 64x4x4
+        x = self.batchNorm3(x)                                  # 64x4x4
+        x = self.relu(x)                                        # 64x4x4
+        x = self.max_pool(x)                                    # 64x2x2
+        x = self.fc1(x.view(-1, 256))                           # nb_hidden1x1
+        x = self.batchNorm4(x)                                  # nb_hidden1x1
+        x = self.relu(x)                                        # nb_hidden1x1
+        x = self.dropout(x)                                     # nb_hidden1x1
+        x = self.fc2(x)                                         # nb_hidden2x1
+        x = self.batchNorm5(x)                                  # nb_hidden2x1
+        x = self.relu(x)                                        # nb_hidden2x1
+        x = self.dropout(x)                                     # nb_hidden2x1
+        x = self.fc3(x)                                         # 2x1
+        return x
+    
+    def get_str_parameters(self):
+        return '{} - nb_hidden1={}, nb_hidden2={}, dropout={}'.format(
+                type(self).__name__, self.nb_hidden1, self.nb_hidden2, self.dropout_prob)
+
+class BaseNetMLP(nn.Module):
+    def __init__(self, nb_hidden1, nb_hidden2, dropout_prob=0):
+        super().__init__()
+
+        self.nb_hidden1 = nb_hidden1
+        self.nb_hidden2 = nb_hidden2
+        self.dropout_prob = dropout_prob
+
+        self.fc1 = nn.Linear(2*14*14, self.nb_hidden1)
+        self.batchNorm1 = nn.BatchNorm1d(self.nb_hidden1)
+        self.fc2 = nn.Linear(self.nb_hidden1, self.nb_hidden2)
+        self.batchNorm2 = nn.BatchNorm1d(self.nb_hidden2)
+        self.fc3 = nn.Linear(self.nb_hidden2, 2)
+
+
+        self.dropout = nn.Dropout(self.dropout_prob)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.fc1(x.view(-1, 2*14*14))
+        x = self.batchNorm1(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc2(x)
+        x = self.batchNorm2(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc3(x)
+
         return x
     
     def get_str_parameters(self):
@@ -70,7 +102,7 @@ class BaseNetCNN(nn.Module):
                 type(self).__name__, self.nb_hidden1, self.nb_hidden2, self.dropout_prob)
 
 
-def train_BaseNetCNN(model, eta, epochs, train_loader, test_loader, optim = 'SGD', print_results=True):
+def train_BaseNet(model, eta, epochs, train_loader, test_loader, optim = 'SGD', print_results=True):
     model.train() # set training mode for BatchNorm and Dropout
     
     train_losses = []
@@ -123,7 +155,7 @@ def binary_step(two_elements_list, left):
     else:
         return [compute_center(two_elements_list), two_elements_list[1]]
 
-def binary_search_BaseNetCNN(hidden_layers1, hidden_layers2, dropout_probabilities, log2_batch_sizes, etas, epochs, cls=BaseNetCNN):
+def binary_search_BaseNet(hidden_layers1, hidden_layers2, dropout_probabilities, log2_batch_sizes, etas, epochs, cls=BaseNetCNN):
     highest_acc = float('-inf')
 
     used_hl = -1
@@ -132,16 +164,16 @@ def binary_search_BaseNetCNN(hidden_layers1, hidden_layers2, dropout_probabiliti
     used_eta = -1
     used_do = -1
 
-    filename = "./BaseNetCNN_binarysearch.txt"
+    if cls == BaseNetCNN:
+        filename = "./BaseNetCNN"
+    elif cls == BaseNetMLP:
+        filename = "./BaseNetMLP"
+    filename += "_binarysearch.txt"
+
     if os.path.exists(filename):
         os.remove(filename)
     
     for bsi in range(BINARY_SEARCH_ITERATIONS):
-        # assert(len(hidden_layers1) == 2)
-        # assert(len(hidden_layers2) == 2)
-        # assert(len(log2_batch_sizes) == 2)
-        # assert(len(etas) == 2)
-        # assert(len(dropout_probabilities) == 2)
 
         len_hl = len(hidden_layers1) == 2
         len_h2 = len(hidden_layers2) == 2
@@ -163,7 +195,7 @@ def binary_search_BaseNetCNN(hidden_layers1, hidden_layers2, dropout_probabiliti
                             for r in range(NUMBER_OF_SEARCH_RUNS):
                                 model = cls(hl, h2, do) # By default cls = SiamesetNet
                                 train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True, validation = True, val_size = 800)
-                                _, _, _, test_accs = train_BaseNetCNN(model=model, eta=eta, epochs=epochs, train_loader=train_loader, test_loader=test_loader)
+                                _, _, _, test_accs = train_BaseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader, test_loader=test_loader)
                                 # print(get_str_results(epoch=e, train_loss= train_losses[-1], test_loss=test_losses[-1] , train_acc= train_accs[-1], test_acc=test_accs[-1]))
                                 acc_cum += test_accs[-1]
                                 del model
@@ -220,14 +252,22 @@ def binary_search_BaseNetCNN(hidden_layers1, hidden_layers2, dropout_probabiliti
     return used_hl, used_h2, used_do, used_log2_bs, used_eta 
 
 
-def run_BaseNetCNN(hl, h2, do, log2_bs, eta, epochs, save_tensors=True, cls=BaseNetCNN):
+def run_BaseNet(hl, h2, do, log2_bs, eta, epochs, save_tensors=True, cls=BaseNetCNN):
 
-    filename = "./BaseNetCNN_parameters.txt"
+    if cls == BaseNetCNN:
+        filename = "./BaseNetCNN"
+    elif cls == BaseNetMLP:
+        filename = "./BaseNetMLP"
+    filename += "_parameters.txt"
 
     with open(filename, "w") as f:
         f.write("hl: {}, h2: {}, do: {}, bs: 2**{}, eta: {}, \n".format(hl, h2, do, log2_bs, eta))
     
-    filename = "./BaseNetCNN_scores.txt"
+    if cls == BaseNetCNN:
+        filename = "./BaseNetCNN"
+    elif cls == BaseNetMLP:
+        filename = "./BaseNetMLP"
+    filename += "_scores.txt"
 
     with open(filename, "w") as f:
         f.write("{} {}\n".format(epochs, NUMBER_OF_EVALUATION_RUNS))
@@ -250,7 +290,7 @@ def run_BaseNetCNN(hl, h2, do, log2_bs, eta, epochs, save_tensors=True, cls=Base
         print('-'*70)
         
         train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
-        train_losses, test_losses, train_accs, test_accs  = train_BaseNetCNN(model=model, eta=eta, epochs=epochs, train_loader=train_loader, test_loader=test_loader)
+        train_losses, test_losses, train_accs, test_accs  = train_BaseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader, test_loader=test_loader)
         # print(get_str_results(epoch=epochs-1, train_loss=train_losses[-1], test_loss=test_losses[-1], train_acc=train_accs[-1], test_acc=test_accs[-1]))
  
         with open(filename, "a") as f:
