@@ -80,11 +80,11 @@ epochs = 30
 # eta = 0.003
 
 hl, h2, h3, do, log2_bs, eta = binary_search_SiameseNet(    hidden_layers1 = [128],
-                                                            hidden_layers2 = [256,512],
-                                                            hidden_layers3 = [256,512],
+                                                            hidden_layers2 = [512],
+                                                            hidden_layers3 = [512],
                                                             dropout_probabilities = [0],
-                                                            log2_batch_sizes = [4,8],
-                                                            etas = [0.001, 0.005],
+                                                            log2_batch_sizes = [6],
+                                                            etas = [0.001],
                                                             epochs = epochs )
 
 
@@ -99,7 +99,7 @@ train_losses, test_losses, train_error_rates, test_error_rates = run_SiameseNet(
 
 
 plot_results(model, hl=hl, h2=h2, do=do, log2_bs=log2_bs, eta=eta,
-            train_losses=train_losses, val_losses=test_losses, train_accs=train_error_rates, val_accs=test_error_rates,savefig=True) 
+            train_losses=train_losses, test_losses=test_losses, train_accs=train_error_rates, test_accs=test_error_rates,savefig=True) 
 plt.show()
 
 # ========================================================================================

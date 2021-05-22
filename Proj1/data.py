@@ -23,8 +23,18 @@ class MNISTPairDataset(Dataset):
         classes = self.classes[i, :]
         return input_data, target, classes
     
-def get_data(N, batch_size, shuffle):
-    train_input, train_target, train_classes, test_input, test_target, test_classes = generate_pair_sets(N)
+def get_data(N, batch_size, shuffle = True, validation = False, val_size = 800):
+    if validation:
+        # create train and test datasets from validation dataset
+        val_input, val_target, val_classes, _, _, _, = generate_pair_sets(N)
+        train_input = val_input[0:val_size,:,:,:]
+        train_target = val_target[0:val_size]
+        train_classes = val_classes[0:val_size,:]
+        test_input = val_input[val_size-1:-1,:,:,:]
+        test_target = val_target[val_size-1:-1]
+        test_classes = val_classes[val_size-1:-1,:]
+    else: 
+        train_input, train_target, train_classes, test_input, test_target, test_classes = generate_pair_sets(N)
     device = get_device()
     # normalization
     mu, std = train_input.mean(), train_input.std()

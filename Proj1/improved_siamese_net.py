@@ -146,13 +146,13 @@ class CNN_AUX_WS(nn.Module):
                 type(self).__name__, self.nb_hidden1, self.nb_hidden2, self.nb_hidden3, self.dropout_prob)
 
 
-def train_SiameseNet(model, eta, epochs, train_loader, val_loader, optim = 'Adam', print_results=True):
+def train_SiameseNet(model, eta, epochs, train_loader, test_loader, optim = 'Adam', print_results=True):
     model.train()
     
     train_losses = []
-    val_losses = []
+    test_losses = []
     train_accs = []
-    val_accs = []
+    test_accs = []
     
     device = get_device() 
     model  = model.to(device)
@@ -182,19 +182,19 @@ def train_SiameseNet(model, eta, epochs, train_loader, val_loader, optim = 'Adam
             optimizer.step()
 
         train_losses.append(eval_model(model=model, data_loader=train_loader))
-        val_losses.append(eval_model(model=model, data_loader=val_loader))
+        test_losses.append(eval_model(model=model, data_loader=test_loader))
         train_accs.append(compute_acc(model=model,data_loader=train_loader)) # model.eval() and torch.no_grad() is used while evaluating
-        val_accs.append(compute_acc(model=model,data_loader=val_loader)) # model.eval() and torch.no_grad() is used while evaluating
+        test_accs.append(compute_acc(model=model,data_loader=test_loader)) # model.eval() and torch.no_grad() is used while evaluating
         
         if print_results:
             if ((e%10) == 0):
-                print(get_str_results(epoch=e, train_loss= train_losses[-1], val_loss=val_losses[-1] , train_acc= train_accs[-1], val_acc=val_accs[-1]))
+                print(get_str_results(epoch=e, train_loss= train_losses[-1], test_loss=test_losses[-1] , train_acc= train_accs[-1], test_acc=test_accs[-1]))
 
     if print_results:           
-        print(get_str_results(epoch=e, train_loss= train_losses[-1], val_loss=val_losses[-1] , train_acc= train_accs[-1], val_acc=val_accs[-1]))
+        print(get_str_results(epoch=e, train_loss= train_losses[-1], test_loss=test_losses[-1] , train_acc= train_accs[-1], test_acc=test_accs[-1]))
         print(70*'-')
 
-    return train_losses, val_losses, train_accs, val_accs
+    return train_losses, test_losses, train_accs, test_accs
 
 
 def compute_center(two_elements_list):
@@ -250,15 +250,15 @@ def binary_search_SiameseNet(hidden_layers1, hidden_layers2, hidden_layers3, dro
                                 acc_cum = 0
                                 for r in range(NUMBER_OF_SEARCH_RUNS):
                                     model = cls(hl, h2, h3, do) # By default cls = SiamesetNet
-                                    train_loader, val_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
-                                    _, _, train_accs, _ = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader, val_loader=val_loader)
-                                    # print(get_str_results(epoch=e, train_loss= train_losses[-1], val_loss=val_losses[-1] , train_acc= train_accs[-1], val_acc=val_accs[-1]))
-                                    acc_cum += train_accs[-1]
+                                    train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True, validation = True, val_size = 800)
+                                    _, _, _, test_accs = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader, test_loader=test_loader)
+                                    # print(get_str_results(epoch=e, train_loss= train_losses[-1], test_loss=test_losses[-1] , train_acc= train_accs[-1], test_acc=test_accs[-1]))
+                                    acc_cum += test_accs[-1]
                                     del model
                                 averaged_acc = acc_cum/NUMBER_OF_SEARCH_RUNS
                                 print(averaged_acc , highest_acc)   
                                 if averaged_acc > highest_acc:
-                                    highest_acc = highest_acc
+                                    highest_acc = averaged_acc
                                     used_hl = hl
                                     used_h2 = h2
                                     used_h3 = h3
@@ -328,14 +328,14 @@ def run_SiameseNet(hl, h2, h3, do, log2_bs, eta, epochs, save_tensors=True, cls=
         f.write("{} {}\n".format(epochs, NUMBER_OF_EVALUATION_RUNS))
 
     averaged_train_loss = 0
-    averaged_val_loss = 0
+    averaged_test_loss = 0
     averaged_train_acc = 0
-    averaged_val_acc = 0
+    averaged_test_acc = 0
 
     arr_train_losses = []
-    arr_val_losses = []
+    arr_test_losses = []
     arr_train_accs = []
-    arr_val_accs = []
+    arr_test_accs = []
 
     for i in range(NUMBER_OF_EVALUATION_RUNS):
         model = cls(hl, h2, h3, do)
@@ -344,65 +344,65 @@ def run_SiameseNet(hl, h2, h3, do, log2_bs, eta, epochs, save_tensors=True, cls=
         print('run: {:2d} - '.format(i) + model.get_str_parameters() + ', batch_size=2**{}, eta={:.4E}'.format(log2_bs,eta))
         print('-'*70)
 
-        train_loader, val_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
-        train_losses, val_losses, train_accs, val_accs  = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader, val_loader=val_loader)
-        # print(get_str_results(epoch=epochs-1, train_loss=train_losses[-1], val_loss=val_losses[-1], train_acc=train_accs[-1], val_acc=val_accs[-1]))
+        train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)
+        train_losses, test_losses, train_accs, test_accs  = train_SiameseNet(model=model, eta=eta, epochs=epochs, train_loader=train_loader, test_loader=test_loader)
+        # print(get_str_results(epoch=epochs-1, train_loss=train_losses[-1], test_loss=test_losses[-1], train_acc=train_accs[-1], test_acc=test_accs[-1]))
 
         with open(filename, "a") as f:
             f.write(" ".join([str(l.item()) for l in train_losses])+"\n")
-            f.write(" ".join([str(l.item()) for l in val_losses])+"\n")
+            f.write(" ".join([str(l.item()) for l in test_losses])+"\n")
             f.write(" ".join([str(er) for er in train_accs])+"\n")
-            f.write(" ".join([str(er) for er in val_accs])+"\n")
+            f.write(" ".join([str(er) for er in test_accs])+"\n")
 
         averaged_train_loss += train_losses[-1]
-        averaged_val_loss += val_losses[-1]
+        averaged_test_loss += test_losses[-1]
         averaged_train_acc += train_accs[-1]
-        averaged_val_acc += val_accs[-1]
+        averaged_test_acc += test_accs[-1]
 
         arr_train_losses.append(train_losses)
-        arr_val_losses.append(val_losses)
+        arr_test_losses.append(test_losses)
         arr_train_accs.append(train_accs)
-        arr_val_accs.append(val_accs)
+        arr_test_accs.append(test_accs)
 
         # del model
 
     averaged_train_loss /= NUMBER_OF_EVALUATION_RUNS
-    averaged_val_loss /= NUMBER_OF_EVALUATION_RUNS
+    averaged_test_loss /= NUMBER_OF_EVALUATION_RUNS
     averaged_train_acc /= NUMBER_OF_EVALUATION_RUNS
-    averaged_val_acc /= NUMBER_OF_EVALUATION_RUNS
+    averaged_test_acc /= NUMBER_OF_EVALUATION_RUNS
 
     with open(filename, "a") as f:
-        f.write("avg_train_loss: {:.4f}, avg_val_loss: {:.4f} ,avg_train_error: {:.4f}, avg_val_error: {:.4f}\n".format(averaged_train_loss, averaged_val_loss, averaged_train_acc, averaged_val_acc))
-        print("avg_train_loss: {:.4f}, avg_val_loss: {:.4f} ,avg_train_error: {:.4f}, avg_val_error: {:.4f} saved to file: {}\n".format(averaged_train_loss, averaged_val_loss, averaged_train_acc, averaged_val_acc, filename))
+        f.write("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_error: {:.4f}, avg_test_error: {:.4f}\n".format(averaged_train_loss, averaged_test_loss, averaged_train_acc, averaged_test_acc))
+        print("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_error: {:.4f}, avg_test_error: {:.4f} saved to file: {}\n".format(averaged_train_loss, averaged_test_loss, averaged_train_acc, averaged_test_acc, filename))
 
     arr_train_losses = torch.tensor(arr_train_losses)
-    arr_val_losses = torch.tensor(arr_val_losses)
+    arr_test_losses = torch.tensor(arr_test_losses)
     arr_train_accs = torch.tensor(arr_train_accs)
-    arr_val_accs = torch.tensor(arr_val_accs)    
+    arr_test_accs = torch.tensor(arr_test_accs)    
 
     if save_tensors:
-        torch.save([arr_train_losses, arr_val_losses, arr_train_accs, arr_val_accs], '{}_tensors_to_plot.pt'.format('SiameseNet'))
+        torch.save([arr_train_losses, arr_test_losses, arr_train_accs, arr_test_accs], '{}_tensors_to_plot.pt'.format('SiameseNet'))
 
-    return arr_train_losses, arr_val_losses, arr_train_accs, arr_val_accs
+    return arr_train_losses, arr_test_losses, arr_train_accs, arr_test_accs
 
 # def run_SiameseNet(hl, h2, h3, bs, eta, do):
 #     averaged_losses = 0
 #     averaged_train_acc = 0
-#     averaged_val_acc = 0
+#     averaged_test_acc = 0
 
 #     for i in range(NUMBER_OF_EVALUATION_RUNS):
 #         model = SiameseNet(hl, h2, h3, do)
-#         train_loader, val_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
-#         losses, train_acc_rates, val_acc_rates = train_SiameseNet(model, eta, train_loader, val_loader)
+#         train_loader, test_loader = get_data(N=1000, batch_size=2**bs, shuffle=True)
+#         losses, train_acc_rates, test_acc_rates = train_SiameseNet(model, eta, train_loader, test_loader)
 
 #         averaged_losses += losses[-1]
 #         averaged_train_acc += train_acc_rates[-1]
-#         averaged_val_acc += val_acc_rates[-1]
+#         averaged_test_acc += test_acc_rates[-1]
 
 #         del model
 
 #     averaged_losses /= NUMBER_OF_EVALUATION_RUNS
 #     averaged_train_acc /= NUMBER_OF_EVALUATION_RUNS
-#     averaged_val_acc /= NUMBER_OF_EVALUATION_RUNS
+#     averaged_test_acc /= NUMBER_OF_EVALUATION_RUNS
 
-#     print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_acc, averaged_val_acc))
+#     print("loss: {}, train error rate: {}, test error rate: {} saved to file\n".format(averaged_losses, averaged_train_acc, averaged_test_acc))

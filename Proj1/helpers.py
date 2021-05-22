@@ -4,6 +4,7 @@ from torch import nn
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import datetime as datetime
+from datetime import datetime
 
 
 @ torch.no_grad()
@@ -67,7 +68,9 @@ def get_device():
         device = 'cpu'
     return device
 
-def get_str_results(epoch=None, train_loss=None, val_loss=None, train_acc=None, val_acc=None):
+
+
+def get_str_results(epoch=None, train_loss=None, test_loss=None, train_acc=None, test_acc=None):
     to_print=''
 
     if epoch is not None:
@@ -76,30 +79,30 @@ def get_str_results(epoch=None, train_loss=None, val_loss=None, train_acc=None, 
     if train_loss is not None:
         to_print += '- train_loss: {:6.4f} '.format(train_loss)
                         
-    if val_loss is not None:
-        to_print += '- val_loss: {:6.4f} '.format(val_loss)
+    if test_loss is not None:
+        to_print += '- test_loss: {:6.4f} '.format(test_loss)
 
     if train_acc is not None:
         to_print += '- train_acc: {:.4f} '.format(train_acc)
     
-    if val_acc is not None:
-        to_print += '- val_acc: {:.4f} '.format(val_acc)
+    if test_acc is not None:
+        to_print += '- test_acc: {:.4f} '.format(test_acc)
     
     return to_print
 
-def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, val_losses, train_accs, val_accs, savefig=False):
+def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, test_losses, train_accs, test_accs, savefig=False):
     
     # Get the means and std
     train_losses_mean = train_losses.mean(axis=0)
     train_losses_std = train_losses.std(axis=0)
-    val_losses_mean = val_losses.mean(axis=0)
-    val_losses_std = val_losses.std(axis=0)
+    test_losses_mean = test_losses.mean(axis=0)
+    test_losses_std = test_losses.std(axis=0)
     train_accs_mean = train_accs.mean(axis=0)
     train_accs_std = train_accs.std(axis=0)
-    val_accs_mean = val_accs.mean(axis=0)
-    val_accs_std = val_accs.std(axis=0)
+    test_accs_mean = test_accs.mean(axis=0)
+    test_accs_std = test_accs.std(axis=0)
 
-    print('train acc - mean: {:.3f} std: {:.3f} || val acc - mean: {:.3f} std: {:.3f}'.format(train_accs_mean[-1],train_accs_std[-1],val_accs_mean[-1],val_accs_std[-1]))
+    print('train acc - mean: {:.3f} std: {:.3f} || test acc - mean: {:.3f} std: {:.3f}'.format(train_accs_mean[-1],train_accs_std[-1],test_accs_mean[-1],test_accs_std[-1]))
 
     fontsize = 10
     fig, axs = plt.subplots(2, 1, sharex=True)
@@ -110,15 +113,15 @@ def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, val_losses, trai
 
     # plot the train loss
     axs[0].errorbar(torch.arange(0,train_losses_mean.size(0)), train_losses_mean, train_losses_std/2, label='train_loss', capsize=3)
-    axs[0].errorbar(torch.arange(0,val_losses_mean.size(0)), val_losses_mean, val_losses_std/2, label='val_loss', capsize=3)
+    axs[0].errorbar(torch.arange(0,test_losses_mean.size(0)), test_losses_mean, test_losses_std/2, label='test_loss', capsize=3)
 
     axs[0].set_ylabel('loss', fontsize=fontsize)
     axs[0].legend()
     axs[0].grid(True)
 
-    # plot the train_error_rate and val_error_rate
+    # plot the train_error_rate and test_error_rate
     axs[1].errorbar(torch.arange(0,train_accs_mean.size(0)), train_accs_mean ,train_accs_std/2, label='train_acc', capsize=3)
-    axs[1].errorbar(torch.arange(0,val_accs_mean.size(0)), val_accs_mean ,val_accs_std/2, label='val_acc', capsize=3)
+    axs[1].errorbar(torch.arange(0,test_accs_mean.size(0)), test_accs_mean ,test_accs_std/2, label='test_acc', capsize=3)
 
     axs[1].set_ylabel('accuracy', fontsize=fontsize)
     axs[1].set_xlabel('epochs', fontsize=fontsize)
@@ -132,7 +135,7 @@ def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, val_losses, trai
     
     if savefig:
         date = datetime.now()
-        plt.savefig('./plots/{}_{:02d}_{:02d}_{}_{:02d}_{:02d}.png'.format(type(model).__name__,
+        plt.savefig('./Proj1/plots/{}_{:02d}_{:02d}_{}_{:02d}_{:02d}.png'.format(type(model).__name__,
                                     date.day,
                                     date.month,
                                     date.year,
