@@ -39,7 +39,7 @@ class ReLU:
         idx = x < 0
         x_copy = x.clone() # Avoid changing x
         x_copy[idx] = 0
-        x_copy[~idx] = 1
+        x_copy[ torch.logical_not(idx)] = 1
         return x_copy
 
 
@@ -47,7 +47,7 @@ class MSELoss():
     """ Module for the MSE loss. """
 
     def __init__(self, reduction='mean'):
-        """ Initializes the MSE with the chosen reduction: mean or sum. """
+        """ Initializes the MSE with the chosen reduction: 'mean' or 'sum'. """
 
         self.reduction = reduction
 
@@ -95,12 +95,10 @@ class Linear():
 
         self.input = None
         self.output = None
-        self.weight = torch.empty(out_features, in_features).uniform_(
-                                    - torch.tensor(1 / in_features).sqrt(),
-                                    torch.tensor(1 / in_features).sqrt())
-        self.bias = torch.empty(out_features).uniform_(
-                                    - torch.tensor(1 / in_features).sqrt(),
-                                    torch.tensor(1 / in_features).sqrt())
+        self.weight = torch.empty(out_features, in_features).uniform_(  - torch.tensor(1 / in_features).sqrt(),
+                                                                        torch.tensor(1 / in_features).sqrt()    )
+        self.bias = torch.empty(out_features).uniform_( - torch.tensor(1 / in_features).sqrt(),
+                                                        torch.tensor(1 / in_features).sqrt()    )
         self.weight_grad = torch.zeros(out_features, in_features)
         self.bias_grad = torch.zeros(out_features, in_features)
         
@@ -110,7 +108,7 @@ class Linear():
         """
         
         self.input = input
-        self.output = input @ self.weight.T + self.bias
+        self.output = self.input @ self.weight.T + self.bias
         return self.output
 
 
@@ -124,13 +122,31 @@ class Sequential():
                        e.g. Linear(), Tanh(), ... ,Linear(), ReLU(), MSELoss().
         """
 
+        self.training = True
         self.args = args
         self.prediction = None
         self.target = None
+        
+
+    def train(self):
+        """ Training mode for the model.
+        During the loss computation, it will store the prediction and target values in the model.
+        Those values are used in the backward step.
+        """
+
+        self.training = True
+        
+    def eval(self):
+        """ Evaluation mode for the model.
+        During the loss computation, it will set the prediction and target values to None in the model,
+        Those values are used in the the backward step and therefore backpropagation will not be possible.
+        """
+
+        self.training = False
 
     def forward(self, input):
         """ Forward step.
-        Applies all the operations declared in the model to the input but the loss function.
+        Applies all the operations declared in the model to the input, but the loss function.
         """
 
         for arg in self.args[:-1]:
@@ -142,8 +158,14 @@ class Sequential():
         Both, the prediction and target are stored in the model.
         """
 
-        self.prediction = prediction
-        self.target = target
+        if self.training:
+            self.prediction = prediction
+            self.target = target
+
+        else:
+            self.prediction = None
+            self.target = None
+
         return self.args[-1](prediction, target)
 
     def backward(self):
@@ -151,7 +173,7 @@ class Sequential():
         The gradients are calculated and stored in their respectives modules.
         """
 
-        # Use easier names for the variables.
+        # Use easier names for the variables. (Optional improvement)
         # Calculates de gradients for the last layer.
         dl_dxL = - self.args[-1].grad(self.prediction, self.target)
         
@@ -159,7 +181,8 @@ class Sequential():
         self.args[-3].weight_grad = dl_dsl.T @ self.args[-3].input 
         self.args[-3].bias_grad = dl_dsl.T @ torch.ones( self.target.size(0) )
 
-        # Backwards loop. Use easier names for the variables
+        # Backwards loop. Use easier names for the variables (Optional improvement)
+        # The loop goes from self.args[-3] to self.args[1] in steps of -2. 
         # Calculates the gradients for the remaining gradients.
         for idx in range(len(self.args[:-3]), 1, -2):
             dl_dsl = (dl_dsl @ self.args[idx].weight) * self.args[idx-1].derivative(self.args[idx-2].output)
@@ -185,3 +208,6 @@ class Sequential():
             arg.weight_grad.zero_()
             arg.bias_grad.zero_()
         return 
+    
+    
+
