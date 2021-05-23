@@ -60,6 +60,8 @@ class MSELoss():
         """
 
         if self.reduction == 'mean':
+            # print(target.shape)
+            # print(prediction.shape)
             error = target - prediction
             return error.pow(2).mean()
 
@@ -72,11 +74,12 @@ class MSELoss():
 
         if self.reduction == 'mean':
             error = target - prediction
-            return 2 /(error.size(0) * error.size(1)) * error
+            # return 2 / (error.size(0) * error.size(1)) * error
+            return - 2 / torch.flatten(error).size(0) * error
 
         elif self.reduction == 'sum':
             error = target - prediction
-            return 2 * error.view(error.size(0),-1)
+            return - 2 * error.view(error.size(0),-1)
 
 
 class Linear():
@@ -177,7 +180,7 @@ class Sequential():
 
         # Use easier names for the variables. (Optional improvement)
         # Calculates de gradients for the last layer.
-        dl_dxL = - self.args[-1].grad(self.prediction, self.target)
+        dl_dxL = self.args[-1].grad(self.prediction, self.target)
         
         dl_dsl = dl_dxL * self.args[-2].derivative(self.args[-3].output)
         self.args[-3].weight_grad = dl_dsl.T @ self.args[-3].input 
