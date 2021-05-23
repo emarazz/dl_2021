@@ -171,7 +171,9 @@ class Sequential():
     def backward(self):
         """ Backward step.
         The gradients are calculated and stored in their respectives modules.
+        self.training must be True.
         """
+        assert(self.training)
 
         # Use easier names for the variables. (Optional improvement)
         # Calculates de gradients for the last layer.
