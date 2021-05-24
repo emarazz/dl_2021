@@ -6,8 +6,8 @@ from matplotlib.ticker import MaxNLocator
 
 
 # Set autograd off
-torch.set_grad_enabled(False)
-
+# torch.set_grad_enabled(False) # comment for test2_pytorch.py
+import torch.nn as nn # uncomment for test2_pytorch.py
 
 def is_inside(input, cols=2):
     """ Returns 0 if the input is outside a disk centered at (0.5, 0.5) of radius 1 / sqrt(2*pi)) and 1 inside.
@@ -38,19 +38,22 @@ def is_inside2(input):
     
     return output.view(input.size(0),-1)
 
-def eval_model(model, input_data, input_target):
+@torch.no_grad()
+def eval_model_pytorch(model, input_data, input_target):
     """ Evaluates the model and returns the loss.
     """
 
     model.eval()
     # print(model.training)
+    criterion = nn.MSELoss()
 
-    output = model.forward(input_data)
-    loss = model.loss(output, input_target)
+    output = model(input_data)
+    loss = criterion(output, input_target)
     
     return loss
 
-def compute_acc(model, input_data, input_target):
+@torch.no_grad()
+def compute_acc_pytorch(model, input_data, input_target):
     """ Computes the accuracy of the model.
     """
 
@@ -59,26 +62,7 @@ def compute_acc(model, input_data, input_target):
 
     nb_errors = 0
           
-    output = model.forward(input_data)
-    for i, out in enumerate(output):
-        pred_target = out.max(0)[1].item()
-        if (input_target[i,1]) != pred_target:
-            nb_errors += 1
-
-    error_rate = nb_errors/input_target.size(0)
-    
-    return 1 - error_rate
-
-def compute_acc2(model, input_data, input_target):
-    """ Computes the accuracy of the model.
-    """
-
-    model.eval()  
-    # print(model.training)
-
-    nb_errors = 0
-          
-    output = model.forward(input_data)
+    output = model(input_data)
     for i, out in enumerate(output):
         pred_target = (out > 0.5).long()
         if (input_target[i]) != pred_target:

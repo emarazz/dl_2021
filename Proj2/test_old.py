@@ -7,14 +7,14 @@ import matplotlib.pyplot as plt
 
 
 torch.set_grad_enabled(False) # Set autograd off
-# torch.manual_seed(0) # Set manual seed for reproducibility
+torch.manual_seed(0) # Set manual seed for reproducibility
     
 # Generate training and test set
 train_input = torch.empty(1000,2).uniform_(0,1)
 test_input = torch.empty(1000,2).uniform_(0,1)
 
-train_target = is_inside2(train_input)
-test_target = is_inside2(test_input)
+train_target = is_inside(train_input)
+test_target = is_inside(test_input)
 
 # print(train_input.shape)
 # print(test_input.shape)
@@ -25,8 +25,8 @@ test_target = is_inside2(test_input)
 model = Sequential(
     Linear(2, 25),ReLU(),
     Linear(25,25), ReLU(),
-    Linear(25,1), Tanh(),
-    MSELoss()
+    Linear(25,2), Tanh(),
+    MSELoss(reduction='mean')
 )
 
 nb_train_samples = train_target.size(0)
@@ -63,8 +63,8 @@ for e in range(nb_epochs):
 
     train_losses.append(eval_model(model, train_input, train_target))
     test_losses.append(eval_model(model, test_input, test_target))
-    train_accs.append(compute_acc2(model, train_input, train_target))
-    test_accs.append(compute_acc2(model, test_input, test_target))
+    train_accs.append(compute_acc(model, train_input, train_target))
+    test_accs.append(compute_acc(model, test_input, test_target))
 
     if e%10 == 0:
         print('epoch: {:4d} - train_loss: {:8.4f} - test_loss {:8.4f} - train_acc: {:.4f} - test_cc {:.4f} '.format(e, train_losses[-1], test_losses[-1], train_accs[-1], test_accs[-1])) 
@@ -78,5 +78,5 @@ train_accs = torch.tensor(train_accs)
 test_accs = torch.tensor(test_accs)
 
 # plot results
-plot_results(model, train_losses, test_losses, train_accs, test_accs, savefig=True)
+plot_results(model, train_losses, test_losses, train_accs, test_accs)
 plt.show()
