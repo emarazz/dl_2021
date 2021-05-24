@@ -10,36 +10,30 @@ from datetime import datetime
 @ torch.no_grad()
 def compute_acc(model, data_loader):
     model.eval()  
-    # print(model.training)
-
     nb_errors = 0
-    if type(model).__name__ == 'BaseNetCNN' or type(model).__name__ == 'BaseNetMLP' :
-        for input_data, target, _ in iter(data_loader):
-            output = model(input_data)
-            for i, out in enumerate(output):
-                pred_target = out.max(0)[1].item()
-                if (target[i]) != pred_target:
-                    nb_errors += 1            
-    else:    
-        for input_data, target, _ in iter(data_loader):
+    for input_data, target, _ in iter(data_loader):
+        
+        if model.get_aux_info() == True:
             _,_,output = model(input_data)
-            for i, out in enumerate(output):
-                pred_target = out.max(0)[1].item()
-                if (target[i]) != pred_target:
-                    nb_errors += 1
+        else: 
+            output = model(input_data)
+   
+        for i, out in enumerate(output):
+            pred_target = out.max(0)[1].item()
+            if (target[i]) != pred_target:
+                nb_errors += 1
 
     error_rate = nb_errors/len(data_loader.dataset)
-    # print(len(data_loader.dataset))
     return 1 - error_rate
 
 @ torch.no_grad()
-def eval_model(model , data_loader):
+def eval_model(model, data_loader, alpha = 1, beta = 1):
     model.eval()
 
     criterion = nn.CrossEntropyLoss(reduction='none')
 
     losses = []
-    if type(model).__name__ == 'BaseNetCNN' or type(model).__name__ == 'BaseNetMLP' :
+    if model.get_aux_info() == False:
         for input_data, target, _ in iter(data_loader):
             output = model(input_data)
             loss = criterion(output, target)
@@ -49,10 +43,9 @@ def eval_model(model , data_loader):
             output_aux1, output_aux2, output = model(input_data)
             loss_aux1 = criterion(output_aux1, class_data[:,0])
             loss_aux2 = criterion(output_aux2, class_data[:,1])
-            # total losses
-            # loss = criterion(output, target) + 0.75*loss_aux1 + 0.75*loss_aux2
-            lam = 0.5
-            loss = lam * criterion(output, target) + loss_aux1 + loss_aux2
+
+            loss = alpha * criterion(output, target) + beta * ( loss_aux1 + loss_aux2 )
+
             losses.append(loss)
     
     return torch.cat(losses).mean()
@@ -61,16 +54,6 @@ def eval_model(model , data_loader):
 @torch.no_grad()
 def compute_error_rate(output, target):
     return 1/output.size(0) * (torch.max(output, 1)[1] != target).long().sum()
-
-# @torch.no_grad()
-# def compute_acc(output, target):
-
-#     return 1/output.size(0) * (torch.max(output, 1)[1] == target).long().sum()
-
-
-
-# def compute_acc(model, data_loader):
-#     return 1 - compute_error_rate(model, data_loader)
 
 def get_device():
     """
@@ -81,8 +64,6 @@ def get_device():
     else:
         device = 'cpu'
     return device
-
-
 
 def get_str_results(epoch=None, train_loss=None, test_loss=None, train_acc=None, test_acc=None):
     to_print=''
@@ -104,7 +85,7 @@ def get_str_results(epoch=None, train_loss=None, test_loss=None, train_acc=None,
     
     return to_print
 
-def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, test_losses, train_accs, test_accs, savefig=False):
+def plot_results(model, hl, h2, h3, do, log2_bs, eta ,train_losses, test_losses, train_accs, test_accs, savefig=False):
     
     # Get the means and std
     train_losses_mean = train_losses.mean(axis=0)
@@ -123,7 +104,13 @@ def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, test_losses, tra
     
     # write the title
     # fig.suptitle(model.get_str_parameters(), fontsize=fontsize+1)
-    fig.suptitle("{} \n hl: {}, h2: {}, do: {:.3f}, bs: {}, eta: {:.4E}".format(type(model).__name__, hl, h2, do, 2**log2_bs, eta), fontsize=fontsize+1)
+    if type(model).__name__ == 'BaseNetCNN' or type(model).__name__ == 'BaseNetMLP':
+        fig.suptitle("{} \n hl: {}, h2: {}, do: {:.3f}, bs: {}, eta: {:.4E}".format(type(model).__name__, hl, h2, do, 2**log2_bs, eta), fontsize=fontsize+1)
+    elif type(model).__name__ == 'AuxNet' or type(model).__name__ == 'SiameseNet': 
+        fig.suptitle("{} \n hl: {}, h2: {}, h3: {}, do: {:.3f}, bs: {}, eta: {:.4E}".format(type(model).__name__, hl, h2, h3, do, 2**log2_bs, eta), fontsize=fontsize+1)
+    else:
+        print('[error] model not recognized')
+        return
 
     # plot the train loss
     axs[0].errorbar(torch.arange(0,train_losses_mean.size(0)), train_losses_mean, train_losses_std/2, label='train_loss', capsize=3)
@@ -149,9 +136,10 @@ def plot_results(model, hl, h2, do, log2_bs, eta ,train_losses, test_losses, tra
     
     if savefig:
         date = datetime.now()
-        plt.savefig('./Proj1/plots/{}_{:02d}_{:02d}_{}_{:02d}_{:02d}.png'.format(type(model).__name__,
+        plt.savefig('./plots/{}_{:02d}_{:02d}_{}_{:02d}_{:02d}.png'.format(type(model).__name__,
                                     date.day,
                                     date.month,
                                     date.year,
                                     date.hour,
                                     date.minute))
+
