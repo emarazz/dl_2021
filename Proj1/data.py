@@ -1,5 +1,3 @@
-# load data and create Dataset
-
 from dlc_practical_prologue import generate_pair_sets
 import torch
 from torch.utils.data import DataLoader, Dataset 
@@ -25,7 +23,9 @@ class MNISTPairDataset(Dataset):
     
 def get_data(N, batch_size, shuffle = True, validation = False, val_size = 800):
     if validation:
-        # create train and test datasets from validation dataset
+        """
+        create train and test datasets from validation dataset
+        """
         val_input, val_target, val_classes, _, _, _, = generate_pair_sets(N)
         train_input = val_input[0:val_size,:,:,:]
         train_target = val_target[0:val_size]
@@ -35,6 +35,7 @@ def get_data(N, batch_size, shuffle = True, validation = False, val_size = 800):
         test_classes = val_classes[val_size:,:]
     else: 
         train_input, train_target, train_classes, test_input, test_target, test_classes = generate_pair_sets(N)
+    
     device = get_device()
     # normalization
     mu, std = train_input.mean(), train_input.std()

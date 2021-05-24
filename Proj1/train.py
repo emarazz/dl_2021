@@ -30,7 +30,7 @@ def train_Net(model, eta, epochs, train_loader, test_loader, optim = 'Adam', alp
         optimizer = torch.optim.SGD(model.parameters(), lr=eta)
     if optim == "Adam":
         optimizer = torch.optim.Adam(model.parameters(), lr=eta, betas=(0.99, 0.999))
-
+        
     for e in range(epochs):
         model.train()
         if model.get_aux_info() == False:
@@ -54,7 +54,7 @@ def train_Net(model, eta, epochs, train_loader, test_loader, optim = 'Adam', alp
         else:
             print('[error] no information on auxiliary losses')
             return
-
+        
         train_losses.append(eval_model(model=model, data_loader=train_loader, alpha=alpha, beta=beta))
         test_losses.append(eval_model(model=model, data_loader=test_loader, alpha=alpha, beta=beta))
         train_accs.append(compute_acc(model=model,data_loader=train_loader)) 
@@ -63,7 +63,7 @@ def train_Net(model, eta, epochs, train_loader, test_loader, optim = 'Adam', alp
         if print_results:
             if (((e+1)%10) == 0) or e == 0:
                 print(get_str_results(epoch=e+1, train_loss= train_losses[-1], test_loss=test_losses[-1] , train_acc= train_accs[-1], test_acc=test_accs[-1]))
-
+    
     if print_results:           
         print(70*'-')
 
@@ -81,8 +81,24 @@ def binary_step(two_elements_list, left):
 def binary_search_Net(cls, nb_hidden1 = [64, 512], nb_hidden2 = [64, 512], nb_hidden3 = [0], 
                             dropout_probabilities = [0], log2_batch_sizes = [6], etas = 0.01, epochs = 30,
                             optim = 'Adam', alpha = 1, beta = 1):
-    highest_acc = float('-inf')
+    """
+    binary search for the following hyperparameters 
+    outputs the combination of hyperparameters with higher accuracy
     
+    hyperparameters
+        cls:                    class of the model
+        nb_hidden:              range of number of hidden units
+        droput_probabilities:   range of dropout probabilities
+        log2_batch_size:        range of batch size (base 2 exponent) 
+        etas:                   range of learning rates
+    parameters
+        epochs:                 number of epochs
+        optim:                  optimizer in {'SGD','Adam'}
+        alpha, beta:            weight of the losses in models with auxiliary losses
+    """
+    
+    highest_acc = float('-inf')
+
     used_h1 = -1
     used_h2 = -1
     used_h3 = -1
@@ -184,7 +200,17 @@ def binary_search_Net(cls, nb_hidden1 = [64, 512], nb_hidden2 = [64, 512], nb_hi
     return used_h1, used_h2, used_h3, used_do, used_log2_bs, used_eta 
 
 def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, save_tensors=True):
-    
+    """
+    train the network a number of times defined by NUMBER_OF_EVALUATION_RUNS and compute the avergare of the losses and accuracy
+        cls:            class of the model
+        h1, h2, h3:     number of hidden units 
+        do:             dropout probability
+        2^(log2_bs):    batch size 
+        eta:            learning rate
+        epochs:         number of epochs
+        optim:          optimizer in {'SGD','Adam'}
+        alpha, beta:    weight of the losses in models with auxiliary losses
+    """
     filename = cls.__name__ + '_parameters.txt'
     
     with open(filename, "w") as f:
@@ -232,16 +258,14 @@ def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, s
         arr_train_accs.append(train_accs)
         arr_test_accs.append(test_accs)
 
-        # del model
-
     averaged_train_loss /= NUMBER_OF_EVALUATION_RUNS
     averaged_test_loss /= NUMBER_OF_EVALUATION_RUNS
     averaged_train_acc /= NUMBER_OF_EVALUATION_RUNS
     averaged_test_acc /= NUMBER_OF_EVALUATION_RUNS
 
     with open(filename, "a") as f:
-        f.write("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_acc: {:.4f}, avg_test_acc: {:.4f}\n".format(averaged_train_loss, averaged_test_loss, averaged_train_acc, averaged_test_acc))
-        print("avg_train_loss: {:.4f}, avg_test_loss: {:.4f} ,avg_train_acc: {:.4f}, avg_test_acc: {:.4f} saved to file: {}\n".format(averaged_train_loss, averaged_test_loss, averaged_train_acc, averaged_test_acc, filename))
+        f.write("avg_train_loss: {:.4f}, avg_test_loss: {:.4f}, avg_train_acc: {:.4f}, avg_test_acc: {:.4f}\n".format(averaged_train_loss, averaged_test_loss, averaged_train_acc, averaged_test_acc))
+        print("avg_train_loss: {:.4f}, avg_test_loss: {:.4f}, avg_train_acc: {:.4f}, avg_test_acc: {:.4f} saved to file: {}\n".format(averaged_train_loss, averaged_test_loss, averaged_train_acc, averaged_test_acc, filename))
 
     arr_train_losses = torch.tensor(arr_train_losses)
     arr_test_losses = torch.tensor(arr_test_losses)

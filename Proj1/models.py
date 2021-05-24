@@ -15,10 +15,10 @@ class BaseNetMLP(nn.Module):
         Baseline A: MultiLayer Perceptron 
                     No auxualiary losses
                     No weight sharing
-            nb_hidden1: number of hidden units first fully connected layer | default = 512
-            nb_hidden2: number of hidden units second fully connected layer | default = 512
-            nb_hidden3: unused input | default = 'NaN' 
-            dropout_prob: dropout probability | default = 0
+            nb_hidden1:     number of hidden units first fully connected layer | default = 512
+            nb_hidden2:     number of hidden units second fully connected layer | default = 512
+            nb_hidden3:     unused input | default = 'NaN' 
+            dropout_prob:   dropout probability | default = 0
         """
         super().__init__()
 
@@ -58,10 +58,10 @@ class BaseNetCNN(nn.Module):
         Baseline B: Convolutional Neural Network + Feed Forward Netork 
                     No auxualiary losses
                     No weight sharing
-            nb_hidden1: number of hidden units first fully connected layer | default = 64
-            nb_hidden2: number of hidden units second fully connected layer | default = 64
-            nb_hidden3: unused input | default = 'NaN' 
-            dropout_prob: dropout probability | default = 0
+            nb_hidden1:     number of hidden units first fully connected layer | default = 64
+            nb_hidden2:     number of hidden units second fully connected layer | default = 64
+            nb_hidden3:     unused input | default = 'NaN' 
+            dropout_prob:   dropout probability | default = 0
         """
         super().__init__()
 
@@ -114,10 +114,10 @@ class AuxNet(nn.Module):
         AuxNet: Convolutional Neural Network + Feed Forward Netork 
                     Auxualiary losses
                     No weight sharing
-            nb_hidden1: number of hidden units first fully connected layer | default = 64
-            nb_hidden2: number of hidden units second fully connected layer | default = 256
-            nb_hidden3: number of hidden units fourth fully connected layer | default = 64
-            dropout_prob: dropout probability | default = 0
+            nb_hidden1:     number of hidden units first fully connected layer | default = 64
+            nb_hidden2:     number of hidden units second fully connected layer | default = 256
+            nb_hidden3:     number of hidden units fourth fully connected layer | default = 64
+            dropout_prob:   dropout probability | default = 0
         """
         super().__init__()
 
@@ -219,10 +219,10 @@ class SiameseNet(nn.Module):
         SiameseNet: Convolutional Neural Network + Feed Forward Netork 
                     Auxualiary losses
                     Weight sharing
-            nb_hidden1: number of hidden units first fully connected layer | default = 64
-            nb_hidden2: number of hidden units second fully connected layer | default = 128
-            nb_hidden3: number of hidden units fourth fully connected layer | default = 128
-            dropout_prob: dropout probability | default = 0
+            nb_hidden1:     number of hidden units first fully connected layer | default = 64
+            nb_hidden2:     number of hidden units second fully connected layer | default = 128
+            nb_hidden3:     number of hidden units fourth fully connected layer | default = 128
+            dropout_prob:   dropout probability | default = 0
         """
         super().__init__()
 
