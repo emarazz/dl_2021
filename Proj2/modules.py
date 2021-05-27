@@ -89,7 +89,7 @@ class Linear():
 
     def __init__(self, in_features, out_features):
         """ Creates the weight and bias for the affine transformation and their gradients.
-        Attributes weight and bias are initialized with Xavier Initialization.
+        Attributes weight and bias are initialized similarly to PyTorch's default initialization.
         Attributes weight_grad and bias_grad initialized with zeros.
             Parameters:
                 in_features : number of features of the input.
