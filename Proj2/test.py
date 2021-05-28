@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 
 torch.set_grad_enabled(False) # Set autograd off
-# torch.manual_seed(0) # Set manual seed for reproducibility
+torch.manual_seed(0) # Set manual seed for reproducibility
     
 # Generate training and test set
 train_input = torch.empty(1000,2).uniform_(0,1)

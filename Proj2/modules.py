@@ -39,7 +39,7 @@ class ReLU:
         idx = x < 0
         x_copy = x.clone() # Avoid changing x
         x_copy[idx] = 0
-        x_copy[ torch.logical_not(idx)] = 1
+        x_copy[torch.logical_not(idx)] = 1
         return x_copy
 
 
@@ -59,26 +59,26 @@ class MSELoss():
                 target : the target value.
         """
 
+        # print(target.shape)
+        # print(prediction.shape)
+        error = target - prediction
+
         if self.reduction == 'mean':
-            # print(target.shape)
-            # print(prediction.shape)
-            error = target - prediction
             return error.pow(2).mean()
 
         elif self.reduction == 'sum':
-            error = target - prediction
             return error.pow(2).sum()
     
     def grad(self, prediction, target):
         """ Returns the gradient of the MSE w.r.t. the prediction. """
 
+        error = target - prediction
+
         if self.reduction == 'mean':
-            error = target - prediction
             # return 2 / (error.size(0) * error.size(1)) * error
             return - 2 / torch.flatten(error).size(0) * error
 
         elif self.reduction == 'sum':
-            error = target - prediction
             return - 2 * error.view(error.size(0),-1)
 
 
@@ -89,7 +89,7 @@ class Linear():
 
     def __init__(self, in_features, out_features):
         """ Creates the weight and bias for the affine transformation and their gradients.
-        Attributes weight and bias are initialized with Xavier Initialization.
+        Attributes weight and bias are initialized similarly to PyTorch's default initialization.
         Attributes weight_grad and bias_grad initialized with zeros.
             Parameters:
                 in_features : number of features of the input.
@@ -164,7 +164,6 @@ class Sequential():
         if self.training:
             self.prediction = prediction
             self.target = target
-
         else:
             self.prediction = None
             self.target = None
@@ -213,6 +212,3 @@ class Sequential():
             arg.weight_grad.zero_()
             arg.bias_grad.zero_()
         return 
-    
-    
-
