@@ -10,7 +10,7 @@ import os
 
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
-NUMBER_OF_EVALUATION_RUNS = 5
+NUMBER_OF_EVALUATION_RUNS = 15
 
 
 def train_Net(model, eta, epochs, train_loader, test_loader, optim = 'Adam', alpha = 1, beta = 1, print_results=True):
