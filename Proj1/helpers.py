@@ -85,6 +85,11 @@ def get_str_results(epoch=None, train_loss=None, test_loss=None, train_acc=None,
     
     return to_print
 
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+
 def plot_results(model, hl, h2, h3, do, log2_bs, eta ,train_losses, test_losses, train_accs, test_accs, savefig=False):
     
     # Get the means and std
