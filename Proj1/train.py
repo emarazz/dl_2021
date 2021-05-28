@@ -10,7 +10,6 @@ import os
 
 BINARY_SEARCH_ITERATIONS = 4
 NUMBER_OF_SEARCH_RUNS = 1
-NUMBER_OF_EVALUATION_RUNS = 15
 
 
 def train_Net(model, eta, epochs, train_loader, test_loader, optim = 'Adam', alpha = 1, beta = 1, print_results=True):
@@ -210,9 +209,9 @@ def binary_search_Net(cls, nb_hidden1 = [64, 512], nb_hidden2 = [64, 512], nb_hi
 
     return used_h1, used_h2, used_h3, used_do, used_log2_bs, used_eta 
 
-def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, save_tensors=True):
+def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, save_tensors=True, evaluation_rounds = 10):
     """ run Net
-    train the network a number of times defined by NUMBER_OF_EVALUATION_RUNS and compute the avergare of the losses and accuracy
+    train the network a number of times defined by 'evaluation_rounds' and compute the avergare of the losses and accuracy
         cls:            class of the model
         h1, h2, h3:     number of hidden units 
         do:             dropout probability
@@ -221,6 +220,7 @@ def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, s
         epochs:         number of epochs
         optim:          optimizer in {'SGD','Adam'}
         alpha, beta:    weight of the losses in models with auxiliary losses
+        evaluation_rounds: number of evaluation rounds 
     """
     filename = cls.__name__ + '_parameters.txt'
     
@@ -230,7 +230,7 @@ def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, s
     filename = cls.__name__ + '_scores.txt'
 
     with open(filename, "w") as f:
-        f.write("{} {}\n".format(epochs, NUMBER_OF_EVALUATION_RUNS))
+        f.write("{} {}\n".format(epochs, evaluation_rounds))
 
     averaged_train_loss = 0
     averaged_test_loss = 0
@@ -241,8 +241,9 @@ def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, s
     arr_test_losses = []
     arr_train_accs = []
     arr_test_accs = []
-
-    for i in range(NUMBER_OF_EVALUATION_RUNS):
+    
+    print('\nNumber of evaluation rounds: {}'.format(evaluation_rounds))
+    for i in range(evaluation_rounds):
         model = cls(h1, h2, h3, do)
 
         print('='*70)
@@ -269,14 +270,14 @@ def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, s
         arr_train_accs.append(train_accs)
         arr_test_accs.append(test_accs)
 
-    averaged_train_loss /= NUMBER_OF_EVALUATION_RUNS
-    averaged_test_loss /= NUMBER_OF_EVALUATION_RUNS
-    averaged_train_acc /= NUMBER_OF_EVALUATION_RUNS
-    averaged_test_acc /= NUMBER_OF_EVALUATION_RUNS
+    averaged_train_loss /= evaluation_rounds
+    averaged_test_loss /= evaluation_rounds
+    averaged_train_acc /= evaluation_rounds
+    averaged_test_acc /= evaluation_rounds
 
     with open(filename, "a") as f:
         f.write("avg_train_loss: {:.4f}, avg_test_loss: {:.4f}, avg_train_acc: {:.4f}, avg_test_acc: {:.4f}\n".format(averaged_train_loss, averaged_test_loss, averaged_train_acc, averaged_test_acc))
-        print("avg_train_loss: {:.4f}, avg_test_loss: {:.4f}, avg_train_acc: {:.4f}, avg_test_acc: {:.4f} saved to file: {}\n".format(averaged_train_loss, averaged_test_loss, averaged_train_acc, averaged_test_acc, filename))
+        print("avg_train_loss: {:.4f}, avg_test_loss: {:.4f}, avg_train_acc: {:.4f}, avg_test_acc: {:.4f}, saved to file: {}\n".format(averaged_train_loss, averaged_test_loss, averaged_train_acc, averaged_test_acc, filename))
 
     arr_train_losses = torch.tensor(arr_train_losses)
     arr_test_losses = torch.tensor(arr_test_losses)
