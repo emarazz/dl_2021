@@ -9,6 +9,10 @@ from datetime import datetime
 
 @ torch.no_grad()
 def compute_acc(model, data_loader):
+    '''compute accuracy
+    feed 'model' with the input data from 'data_loader'
+    compute the accuracy of the model's output
+    '''
     model.eval()  
     nb_errors = 0
     for input_data, target, _ in iter(data_loader):
@@ -28,6 +32,9 @@ def compute_acc(model, data_loader):
 
 @ torch.no_grad()
 def eval_model(model, data_loader, alpha = 1, beta = 1):
+    '''evaluate model
+    train 'model' with one epoch and compute the losses 
+    '''
     model.eval()
 
     criterion = nn.CrossEntropyLoss(reduction='none')
@@ -53,12 +60,13 @@ def eval_model(model, data_loader, alpha = 1, beta = 1):
 
 @torch.no_grad()
 def compute_error_rate(output, target):
+    ''' compare 'output' with 'target' and compute the error rate
+    '''
     return 1/output.size(0) * (torch.max(output, 1)[1] != target).long().sum()
 
 def get_device():
-    """
-    get the device in which tensors, modules and criterions will be stored
-    """
+    '''get the device in which tensors, modules and criterions will be stored
+    '''
     if torch.cuda.is_available():
         device = 'cuda'
     else:
@@ -66,6 +74,8 @@ def get_device():
     return device
 
 def get_str_results(epoch=None, train_loss=None, test_loss=None, train_acc=None, test_acc=None):
+    '''construct the string that has to be print 
+    '''
     to_print=''
 
     if epoch is not None:
@@ -87,11 +97,14 @@ def get_str_results(epoch=None, train_loss=None, test_loss=None, train_acc=None,
 
 
 def count_parameters(model):
+    '''count the total number of parameters in 'model'
+    '''
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
 def plot_results(model, hl, h2, h3, do, log2_bs, eta ,train_losses, test_losses, train_accs, test_accs, savefig=False):
-    
+    '''plot the test and train accuracy and loss over the epochs
+    '''
     # Get the means and std
     train_losses_mean = train_losses.mean(axis=0)
     train_losses_std = train_losses.std(axis=0)

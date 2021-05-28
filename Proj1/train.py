@@ -14,6 +14,17 @@ NUMBER_OF_EVALUATION_RUNS = 15
 
 
 def train_Net(model, eta, epochs, train_loader, test_loader, optim = 'Adam', alpha = 1, beta = 1, print_results=True):
+    '''train Net
+    train the network while computing the train and test loss and accuracy over the epochs
+        model:          model that has to be trained
+        eta:            learning rate
+        epochs:         number of epochs
+        train_loader:   pytorch dataloader for the train datatset
+        test_loader:    pytorch dataloader fot the test dataset
+        optim:          optimizer in {'SGD','Adam'}
+        alpha, beta:    weight of the losses in models with auxiliary losses
+        print_results:  print the performance every 10 epochs
+    '''
     model.train()
 
     train_losses = []
@@ -81,7 +92,7 @@ def binary_step(two_elements_list, left):
 def binary_search_Net(cls, nb_hidden1 = [64, 512], nb_hidden2 = [64, 512], nb_hidden3 = [0], 
                             dropout_probabilities = [0], log2_batch_sizes = [6], etas = 0.01, epochs = 30,
                             optim = 'Adam', alpha = 1, beta = 1):
-    """
+    """ binary search Net
     binary search for the following hyperparameters 
     outputs the combination of hyperparameters with higher accuracy
     
@@ -200,7 +211,7 @@ def binary_search_Net(cls, nb_hidden1 = [64, 512], nb_hidden2 = [64, 512], nb_hi
     return used_h1, used_h2, used_h3, used_do, used_log2_bs, used_eta 
 
 def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, save_tensors=True):
-    """
+    """ run Net
     train the network a number of times defined by NUMBER_OF_EVALUATION_RUNS and compute the avergare of the losses and accuracy
         cls:            class of the model
         h1, h2, h3:     number of hidden units 
