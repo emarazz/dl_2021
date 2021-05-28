@@ -247,7 +247,7 @@ def run_Net(cls, h1, h2, h3, do, log2_bs, eta, epochs, optim, alpha=1, beta=1, s
         model = cls(h1, h2, h3, do)
 
         print('='*70)
-        print('run: {:2d} - '.format(i+1) + model.get_str_parameters() + ', batch_size=2**{}, eta={:.4E}'.format(log2_bs,eta))
+        print('round: {:2d} - '.format(i+1) + model.get_str_parameters() + ', batch_size=2**{}, eta={:.4E}'.format(log2_bs,eta))
         print('-'*70)
 
         train_loader, test_loader = get_data(N=1000, batch_size=2**log2_bs, shuffle=True)

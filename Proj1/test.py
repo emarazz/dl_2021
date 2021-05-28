@@ -58,12 +58,12 @@ epochs = 30
                     . cronstruct the desired model
                     . load data from MNIST and create train and test data loaders
                     . train the model and get the performance estimators 
-                    note:   number of evaluation runs is set to 1 by default 
+                    note:   number of evaluation runs is set to 2 by default 
                             consider changing 'evaluation_rounds'
 ======================================================================================================
 '''
 # set the number of evaluation rounds
-evaluation_rounds = 1
+evaluation_rounds = 2
 # construct the model
 model = cls(nb_hidden1 = h1,
             nb_hidden2 = h2,
@@ -114,7 +114,7 @@ for more details on binary_search_Net() go to 'train.py'
 '''
 # hl, h2, h3, do, log2_bs, eta = binary_search_Net(cls,   nb_hidden1 = [64, 512],
 #                                                         nb_hidden2 = [64, 512],
-#                                                         nb_hidden2 = [64, 512],
+#                                                         nb_hidden3 = [64, 512],
 #                                                         log2_batch_sizes = [6, 7],
 #                                                         etas = [0.001, 0.1],
 #                                                         epochs = epochs, optim='Adam')
