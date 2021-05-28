@@ -13,8 +13,8 @@ torch.manual_seed(0) # Set manual seed for reproducibility
 train_input = torch.empty(1000,2).uniform_(0,1)
 test_input = torch.empty(1000,2).uniform_(0,1)
 
-train_target = is_inside2(train_input)
-test_target = is_inside2(test_input)
+train_target = is_inside(train_input)
+test_target = is_inside(test_input)
 
 # print(train_input.shape)
 # print(test_input.shape)
@@ -63,8 +63,8 @@ for e in range(nb_epochs):
 
     train_losses.append(eval_model(model, train_input, train_target))
     test_losses.append(eval_model(model, test_input, test_target))
-    train_accs.append(compute_acc2(model, train_input, train_target))
-    test_accs.append(compute_acc2(model, test_input, test_target))
+    train_accs.append(compute_acc(model, train_input, train_target))
+    test_accs.append(compute_acc(model, test_input, test_target))
 
     if e%10 == 0:
         print('epoch: {:4d} - train_loss: {:8.4f} - test_loss {:8.4f} - train_acc: {:.4f} - test_cc {:.4f} '.format(e, train_losses[-1], test_losses[-1], train_accs[-1], test_accs[-1])) 
@@ -77,6 +77,6 @@ test_losses = torch.tensor(test_losses)
 train_accs = torch.tensor(train_accs)
 test_accs = torch.tensor(test_accs)
 
-# plot results
-plot_results(model, train_losses, test_losses, train_accs, test_accs, savefig=True)
-plt.show()
+# uncomment to plot results - uncomment at the beggining import matplotlib.pyplot as plt
+# plot_results(model, train_losses, test_losses, train_accs, test_accs, savefig=True)
+# plt.show()
