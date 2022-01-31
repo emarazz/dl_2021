@@ -1,7 +1,10 @@
 # dl_2021
-Deep Learning Mini-Projects
+This repository contains the two miniprojects associated with EPFL master course EE-559 Deep Learning, taught in 2021. See the `dlc-miniprojects.pdf` file for more details.
 
-## Usage
+1. Classification, weight sharing, auxiliary losses. `Proj1`
+1. Mini deep-learning framework. `Proj2`
+
+## Installation
 ```
 conda create -n dl_2021 python=3.8.5
 ```
